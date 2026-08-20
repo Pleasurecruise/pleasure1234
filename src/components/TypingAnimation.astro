@@ -1,0 +1,117 @@
+---
+import Ann from './Ann.astro';
+import type { Direction, Color } from './Ann.astro';
+
+type IconComponent = typeof import('./icons/X.astro').default;
+
+type Segment =
+  | { kind: 'text'; text: string }
+  | { kind: 'ann'; text: string; direction: Direction; color: Color; note: string; href: string; icon: IconComponent }
+  | { kind: 'audio'; src: string };
+
+interface Props {
+  lines: Segment[][];
+  duration: number;
+  delay: number;
+}
+
+const { lines, duration, delay } = Astro.props;
+---
+
+<div
+  class="typing-animation"
+  data-duration={duration}
+  data-delay={delay}
+>
+  {lines.map((segments) => (
+    <p class="typing-line">
+      {segments.map((segment) => {
+        if (segment.kind === 'audio') {
+          return (
+            <button class="audio-trigger" type="button" aria-label="Play cat sound" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5 6.8 9H3v6h3.8l4.2 4V5Z" />
+                <path d="M15 9.2c1.1 1.6 1.1 4 0 5.6M18 6.5c2.8 3 2.8 8 0 11" />
+              </svg>
+              <audio src={segment.src} preload="none"></audio>
+            </button>
+          );
+        }
+        const token = <span class="typing-token" data-text={segment.text}><span class="typing-glyphs"></span></span>;
+        if (segment.kind === 'text') return token;
+        const Icon = segment.icon;
+        return (
+          <Ann direction={segment.direction} color={segment.color} note={segment.note} href={segment.href}>
+            {token}
+            <Icon slot="icon" />
+          </Ann>
+        );
+      })}
+      <span class="typing-cursor" aria-hidden="true" hidden></span>
+    </p>
+  ))}
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('.typing-animation').forEach((root) => {
+    const lines = Array.from(root.querySelectorAll<HTMLElement>('.typing-line'));
+    const duration = Number(root.dataset.duration);
+    const delay = Number(root.dataset.delay);
+    const lineDelay = 280;
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const revealAll = () => {
+      root.querySelectorAll<HTMLElement>('.typing-token').forEach((token) => {
+        const output = token.querySelector<HTMLElement>('.typing-glyphs')!;
+        output.textContent = token.dataset.text!;
+      });
+      root.querySelectorAll('.ann').forEach((ann) => ann.classList.add('is-typed'));
+      root.querySelectorAll<HTMLButtonElement>('.audio-trigger').forEach((button) => { button.hidden = false; });
+      root.querySelectorAll<HTMLElement>('.typing-cursor').forEach((cursor) => { cursor.hidden = true; });
+    };
+
+    if (reduceMotion) {
+      revealAll();
+      return;
+    }
+
+    async function run() {
+      await sleep(delay);
+      for (const [lineIndex, line] of lines.entries()) {
+        const cursors = root.querySelectorAll<HTMLElement>('.typing-cursor');
+        cursors.forEach((cursor, index) => cursor.hidden = index !== lineIndex);
+        const tokens = Array.from(line.querySelectorAll<HTMLElement>('.typing-token'));
+        for (const token of tokens) {
+          const output = token.querySelector<HTMLElement>('.typing-glyphs')!;
+          const characters = Array.from(token.dataset.text!);
+          for (let index = 1; index <= characters.length; index++) {
+            output.textContent = characters.slice(0, index).join('');
+            await sleep(duration);
+          }
+          const annotation = token.closest('.ann');
+          if (annotation) annotation.classList.add('is-typed');
+        }
+        const audioButton = line.querySelector<HTMLButtonElement>('.audio-trigger');
+        if (audioButton) audioButton.hidden = false;
+        if (lineIndex < lines.length - 1) await sleep(lineDelay);
+      }
+      root.querySelectorAll<HTMLElement>('.typing-cursor').forEach((cursor) => { cursor.hidden = true; });
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      void run();
+    }, { threshold: 0.15 });
+    observer.observe(root);
+
+    root.querySelectorAll<HTMLButtonElement>('.audio-trigger').forEach((button) => {
+      const audio = button.querySelector<HTMLAudioElement>('audio')!;
+      button.addEventListener('click', () => {
+        audio.currentTime = 0;
+        void audio.play();
+      });
+    });
+  });
+</script>

@@ -1,0 +1,42 @@
+---
+export type Direction = 'n' | 'ne' | 'nw' | 'e' | 's' | 'se' | 'sw' | 'w';
+export type Color = 'blue' | 'amber' | 'green' | 'red' | 'purple';
+
+interface Props {
+  direction: Direction;
+  color: Color;
+  note: string;
+  href: string;
+}
+
+const { direction, color, note, href } = Astro.props;
+
+const arrows: Record<Direction, string[]> = {
+  n:  ['M21 2 C20 10 20 18 21 26', 'M15 20 L21 26 L27 20'],
+  ne: ['M39 14 C25 11 12 15 4 25', 'M5 17 L4 25 L12 23'],
+  nw: ['M3 14 C17 11 30 15 38 25', 'M30 23 L38 25 L37 17'],
+  e:  ['M40 14 C29 13 15 13 3 14', 'M10 8 L3 14 L10 20'],
+  s:  ['M21 26 C20 18 20 10 21 2', 'M15 8 L21 2 L27 8'],
+  se: ['M39 14 C25 17 12 13 4 3', 'M5 11 L4 3 L12 5'],
+  sw: ['M3 14 C17 17 30 13 38 3', 'M30 5 L38 3 L37 11'],
+  w:  ['M2 14 C13 13 27 13 39 14', 'M32 8 L39 14 L32 20'],
+};
+---
+
+<a class={`ann ann-${direction} ann-${color}`} href={href} target="_blank" rel="noreferrer">
+  <slot />
+  <span class="ann-note" aria-hidden="true">
+    <svg viewBox="0 0 42 28" aria-hidden="true">
+      {arrows[direction].map((path) => <path d={path} />)}
+    </svg>
+    <span class="ann-note__text">
+      <slot name="icon" />
+      <span class="ann-note__label">
+        {note}
+        <svg class="ann-note__underline" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M1.4 5.2 C16 2.4 34 6.6 51 3.6 S79 7 98.6 4.3" />
+        </svg>
+      </span>
+    </span>
+  </span>
+</a>

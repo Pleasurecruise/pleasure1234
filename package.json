@@ -1,0 +1,15 @@
+{
+  "name": "pleasure1234",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@fontsource/lora": "5.3.0",
+    "@fontsource/shantell-sans": "5.3.0",
+    "astro": "7.2.3"
+  }
+}

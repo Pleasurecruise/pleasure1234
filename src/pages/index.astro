@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import TypingAnimation from '../components/TypingAnimation.astro';
+import X from '../components/icons/X.astro';
+import Camera from '../components/icons/Camera.astro';
+import Brain from '../components/icons/Brain.astro';
+import Book from '../components/icons/Book.astro';
+import Home from '../components/icons/Home.astro';
+
+const base = import.meta.env.BASE_URL;
+const lines = [
+  [{ kind: 'text' as const, text: "Hi. I'm  " }, { kind: 'ann' as const, text: 'Pleasure1234.', direction: 'ne' as const, color: 'red' as const, note: '@yiming9876', href: 'https://x.com/yiming9876', icon: X }],
+  [{ kind: 'text' as const, text: 'I ' }, { kind: 'ann' as const, text: 'shoot', direction: 'nw' as const, color: 'green' as const, note: 'moment', href: 'https://moment.you-find.me', icon: Camera }, { kind: 'text' as const, text: ' the road.' }],
+  [{ kind: 'text' as const, text: 'I ' }, { kind: 'ann' as const, text: 'talk', direction: 'w' as const, color: 'amber' as const, note: 'memos', href: 'https://memos.you-find.me', icon: Brain }, { kind: 'text' as const, text: ' to the wind.' }],
+  [{ kind: 'text' as const, text: 'I let ' }, { kind: 'ann' as const, text: 'it', direction: 'sw' as const, color: 'blue' as const, note: 'knowledge', href: 'https://knowledge.you-find.me', icon: Book }, { kind: 'text' as const, text: ' all settle.' }],
+  [{ kind: 'text' as const, text: 'learn ' }, { kind: 'ann' as const, text: 'more', direction: 's' as const, color: 'purple' as const, note: 'you-find.me', href: 'https://you-find.me', icon: Home }, { kind: 'text' as const, text: ' about me.' }, { kind: 'audio' as const, src: `${base}cat.mp3` }],
+];
+---
+
+<Layout title="Pleasure1234">
+  <main class="home">
+    <img src={`${base}avatar.png`} alt="Pleasure1234" width="160" height="160" class="avatar" />
+    <div class="intro">
+      <TypingAnimation lines={lines} duration={55} delay={250} />
+    </div>
+  </main>
+  <aside class="credit">
+    inspired by <a href="https://cuvii.dev" target="_blank" rel="noreferrer">cuvii.dev</a>
+  </aside>
+</Layout>

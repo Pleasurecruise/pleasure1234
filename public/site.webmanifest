@@ -1,0 +1,21 @@
+{
+  "name": "Pleasure1234",
+  "short_name": "Pleasure1234",
+  "description": "Personal website of Pleasure1234",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ff7a3d",
+  "theme_color": "#ff7a3d",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
