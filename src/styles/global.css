@@ -341,11 +341,22 @@ body {
     white-space: pre-wrap;
   }
 
-  .ann-note {
+  .ann {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .ann .ann-note {
     position: static;
     display: inline-flex;
+    flex-direction: row;
+    flex: 0 1 auto;
     margin-left: 0.35rem;
     transform: none;
+  }
+
+  .ann-note__text {
+    min-width: 0;
   }
 
   .ann-note > svg {
