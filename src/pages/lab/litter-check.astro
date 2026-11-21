@@ -1,0 +1,492 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+const litter = 'M23,9 H127 A4,4 0 0 1 131,13 V48 H99 A24,13 0 0 1 51,48 H19 V13 A4,4 0 0 1 23,9 Z';
+---
+
+<Layout title="Litter Check · Lab" description="Stir the litter to find the clumps hidden in the noise, drag them into the bin, and prove you are not a niko.">
+  <main class="lab">
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+
+    <div class="widget" data-audio={`${base}cat.mp3`}>
+      <section class="challenge" id="challenge" aria-labelledby="challenge-title">
+        <header class="head">
+          <small>From the litter box</small>
+          <strong id="challenge-title">Remove all clumps</strong>
+        </header>
+
+        <div class="stage">
+          <svg viewBox="0 0 150 135" aria-hidden="true">
+            <defs>
+              <linearGradient id="lc-body" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffffff" />
+                <stop offset="1" stop-color="#e4e4e4" />
+              </linearGradient>
+              <linearGradient id="lc-bin" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#d9d9d9" />
+                <stop offset="0.45" stop-color="#f4f4f4" />
+                <stop offset="1" stop-color="#cdcdcd" />
+              </linearGradient>
+              <linearGradient id="lc-mouth" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#bdbdbd" />
+                <stop offset="1" stop-color="#e2e2e2" />
+              </linearGradient>
+              <filter id="lc-shadow" x="-10%" y="-10%" width="120%" height="130%">
+                <feDropShadow dx="0" dy="1.2" stdDeviation="1.2" flood-opacity="0.18" />
+              </filter>
+            </defs>
+            <rect x="13" y="3" width="124" height="72" rx="9" fill="url(#lc-body)" stroke="#d4d4d4" stroke-width="0.6" filter="url(#lc-shadow)" />
+            <path d={litter} fill="#ececec" stroke="#c9c9c9" stroke-width="1.4" />
+            <g filter="url(#lc-shadow)">
+              <path d="M57,84 L93,84 L90,123 Q89.8,127 86,127 L64,127 Q60.2,127 60,123 Z" fill="url(#lc-bin)" />
+              <rect x="55" y="80.5" width="40" height="5" rx="2.5" fill="#efefef" stroke="#d0d0d0" stroke-width="0.5" />
+              <rect x="58" y="83.5" width="34" height="3" rx="1.5" fill="url(#lc-mouth)" />
+            </g>
+          </svg>
+          <canvas id="litter" tabindex="0" aria-label="Litter box. Stir the litter to find the clumps, then drag them into the bin below. Keyboard: press Enter to remove one."></canvas>
+          <img class="sticker" src={`${base}lab/litter-check/sticker.webp`} alt="" width="512" height="512" />
+        </div>
+
+        <p class="error" id="error" hidden>Please remove all clumps.</p>
+        <p class="info" id="info" hidden>The clumps are made of the same noise as the litter, so they vanish when nothing moves. Stir the litter with your cursor; whatever does not move along is a clump.</p>
+
+        <footer class="foot">
+          <div class="tools">
+            <button type="button" id="refresh" aria-label="New litter box" title="New litter box">
+              <svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95" /><path d="M19.5 4.5v4h-4" /></svg>
+            </button>
+            <button type="button" id="audio" aria-label="Audio challenge" title="Audio challenge">
+              <svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3" /><rect x="3.5" y="14" width="4" height="6" rx="1.5" /><rect x="16.5" y="14" width="4" height="6" rx="1.5" /></svg>
+            </button>
+            <button type="button" id="info-toggle" aria-label="Help" title="Help" aria-expanded="false" aria-controls="info">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5" /><circle cx="12" cy="7.8" r="0.6" fill="currentColor" /></svg>
+            </button>
+          </div>
+          <button type="button" class="verify" id="verify" style="--p: 0">
+            <span>Verify</span>
+          </button>
+        </footer>
+      </section>
+
+      <div class="anchor" id="anchor-row" hidden>
+        <button type="button" class="box" id="anchor" role="checkbox" aria-checked="false" aria-label="I'm not a niko">
+          <span class="spinner" aria-hidden="true"></span>
+          <svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11" /></svg>
+        </button>
+        <span class="label">I'm not a niko</span>
+        <span class="brand" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 1 8.2 6.3" /><path d="M20.5 12a8.5 8.5 0 0 1-6.3 8.2" /><path d="M12 20.5a8.5 8.5 0 0 1-8.2-6.3" /><path d="M3.5 12a8.5 8.5 0 0 1 6.3-8.2" /><path d="M17.2 5.8l3 4-4.8.6" /><path d="M6.8 18.2l-3-4 4.8-.6" /></svg>
+          <b>CatCHA</b>
+          <small>Privacy - Terms</small>
+        </span>
+      </div>
+    </div>
+
+    <p class="lab-hint" id="hint">Stir the litter. The clumps are whatever does not move along.</p>
+  </main>
+</Layout>
+
+<style>
+  .lab {
+    width: min(calc(100% - 2rem), 40rem);
+    padding-block: 4rem 3rem;
+  }
+
+  .widget {
+    --blue: #4a90e2;
+    width: min(100%, 20rem);
+    display: grid;
+    gap: 0.75rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #333;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  .challenge {
+    background: #fff;
+    border: 1px solid #d6d6d6;
+    box-shadow: 0 2px 10px rgb(0 0 0 / 0.08);
+    padding: 0.5rem;
+    transform-origin: 50% 100%;
+    animation: pop 220ms ease-out;
+  }
+
+  .challenge[hidden] {
+    display: none;
+  }
+
+  .challenge.closing {
+    animation: pop 180ms ease-in reverse forwards;
+  }
+
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  }
+
+  .head {
+    background: var(--blue);
+    color: #fff;
+    padding: 1rem 1rem 1.15rem;
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .head small {
+    font-size: 0.8rem;
+    opacity: 0.95;
+  }
+
+  .head strong {
+    font-size: 1.35rem;
+    letter-spacing: 0.02em;
+  }
+
+  .stage {
+    position: relative;
+    margin: 0.75rem auto 0.25rem;
+    width: 100%;
+    aspect-ratio: 150 / 135;
+  }
+
+  .stage svg,
+  .stage canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .sticker {
+    position: absolute;
+    left: 72.5%;
+    top: 38%;
+    width: 15%;
+    height: auto;
+    filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.2));
+    pointer-events: none;
+  }
+
+  .stage canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+  }
+
+  .stage canvas:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+
+  .error,
+  .info {
+    margin: 0 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .error {
+    color: #d93025;
+  }
+
+  .info {
+    color: #666;
+  }
+
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #e3e3e3;
+    padding: 0.6rem 0.25rem 0.1rem;
+  }
+
+  .tools {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .tools button {
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: #707070;
+    cursor: pointer;
+  }
+
+  .tools button:hover,
+  .tools button[aria-expanded='true'] {
+    background: #f0f0f0;
+    color: #333;
+  }
+
+  .tools svg {
+    width: 1.3rem;
+    height: 1.3rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .verify {
+    position: relative;
+    overflow: hidden;
+    min-width: 6.5rem;
+    padding: 0.7rem 1rem;
+    border: 0;
+    border-radius: 2px;
+    background: #c4c4c4;
+    color: #fff;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 200ms ease;
+  }
+
+  .verify::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #9d9d9d;
+    transform: scaleX(var(--p));
+    transform-origin: left;
+    transition: transform 300ms ease;
+  }
+
+  .verify span {
+    position: relative;
+  }
+
+  .verify.ready {
+    background: var(--blue);
+  }
+
+  .verify.ready::before {
+    opacity: 0;
+  }
+
+  .verify.shake {
+    animation: shake 300ms ease;
+  }
+
+  @keyframes shake {
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  .anchor[hidden] {
+    display: none;
+  }
+
+  .anchor {
+    display: flex;
+    animation: pop 220ms ease-out;
+    align-items: center;
+    gap: 0.8rem;
+    height: 4.6rem;
+    padding: 0 0.8rem;
+    background: #f9f9f9;
+    border: 1px solid #d3d3d3;
+    border-radius: 3px;
+    box-shadow: 0 0 4px 1px rgb(0 0 0 / 0.08);
+  }
+
+  .box {
+    position: relative;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    padding: 0;
+    border: 2px solid #c1c1c1;
+    border-radius: 2px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 150ms ease, border-radius 200ms ease, width 200ms ease, height 200ms ease;
+  }
+
+  .box:hover {
+    border-color: #b2b2b2;
+  }
+
+  .box:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+
+  .spinner,
+  .tick {
+    position: absolute;
+    inset: -2px;
+    opacity: 0;
+  }
+
+  .box.loading {
+    border-color: transparent;
+    background: none;
+  }
+
+  .box.loading .spinner {
+    opacity: 1;
+    border: 3px solid #e3ecf8;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 700ms linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(1turn); }
+  }
+
+  .box[aria-checked='true'] {
+    border-color: transparent;
+    background: none;
+  }
+
+  .tick {
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    fill: none;
+    stroke: #009e55;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+  }
+
+  .box[aria-checked='true'] .tick {
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 350ms ease-out;
+  }
+
+  .label {
+    flex: 1;
+    font-size: 0.9rem;
+  }
+
+  .brand {
+    display: grid;
+    justify-items: center;
+    gap: 0.05rem;
+    color: #555;
+  }
+
+  .brand svg {
+    width: 1.9rem;
+    height: 1.9rem;
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .brand b {
+    font-size: 0.6rem;
+    font-weight: 500;
+  }
+
+  .brand small {
+    font-size: 0.5rem;
+    color: #888;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .challenge,
+    .challenge.closing,
+    .verify.shake,
+    .box.loading .spinner {
+      animation-duration: 1ms;
+    }
+  }
+</style>
+
+<script>
+  import { byId, find } from '../../lib/dom';
+  import { mountLitterCheck } from '../../labs/litter-check';
+
+  const widget = find(document, '.widget', HTMLElement);
+  const challenge = byId('challenge', HTMLElement);
+  const anchorRow = byId('anchor-row', HTMLElement);
+  const anchor = byId('anchor', HTMLButtonElement);
+  const verify = byId('verify', HTMLButtonElement);
+  const error = byId('error', HTMLElement);
+  const info = byId('info', HTMLElement);
+  const infoToggle = byId('info-toggle', HTMLButtonElement);
+  const hint = byId('hint', HTMLElement);
+  const canvas = byId('litter', HTMLCanvasElement);
+
+  const game = mountLitterCheck(canvas, (removed, total) => {
+    verify.style.setProperty('--p', String(total ? removed / total : 0));
+    verify.classList.toggle('ready', total > 0 && removed === total);
+    if (removed === total) error.hidden = true;
+  });
+
+  function pass() {
+    challenge.classList.add('closing');
+    window.setTimeout(() => {
+      challenge.hidden = true;
+      anchorRow.hidden = false;
+      anchor.classList.add('loading');
+      hint.textContent = '';
+      window.setTimeout(() => {
+        anchor.classList.remove('loading');
+        anchor.setAttribute('aria-checked', 'true');
+        hint.textContent = 'Verified. Click the tick to go again.';
+      }, 700);
+    }, 180);
+  }
+
+  function restart() {
+    anchor.setAttribute('aria-checked', 'false');
+    anchorRow.hidden = true;
+    error.hidden = true;
+    game.reset();
+    challenge.classList.remove('closing');
+    challenge.hidden = false;
+    hint.textContent = 'Stir the litter. The clumps are whatever does not move along.';
+  }
+
+  anchor.addEventListener('click', () => {
+    if (anchor.getAttribute('aria-checked') === 'true') restart();
+  });
+
+  verify.addEventListener('click', () => {
+    if (game.remaining() === 0) return pass();
+    error.hidden = false;
+    verify.classList.remove('shake');
+    void verify.offsetWidth;
+    verify.classList.add('shake');
+  });
+
+  byId('refresh', HTMLElement).addEventListener('click', () => {
+    error.hidden = true;
+    game.reset();
+  });
+
+  byId('audio', HTMLElement).addEventListener('click', () => {
+    void new Audio(widget.dataset.audio).play().catch(() => {});
+  });
+
+  infoToggle.addEventListener('click', () => {
+    info.hidden = !info.hidden;
+    infoToggle.setAttribute('aria-expanded', String(!info.hidden));
+  });
+
+  canvas.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    game.removeOne();
+  });
+</script>

@@ -26,6 +26,50 @@ body {
   margin: 0;
 }
 
+.lab {
+  width: min(calc(100% - 2rem), 60rem);
+  min-height: 100svh;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.back {
+  color: inherit;
+  font-family: var(--hand);
+  font-size: 0.75rem;
+  opacity: 0.55;
+  text-decoration: none;
+}
+
+.back:hover {
+  opacity: 1;
+}
+
+.back-pinned {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+}
+
+.lab-hint {
+  margin: 0;
+  text-align: center;
+  font-family: var(--hand);
+  font-size: 0.75rem;
+  opacity: 0.55;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ink) 40%, transparent);
+  outline-offset: 6px;
+  border-radius: 8px;
+}
+
 .home {
   width: min(calc(100% - 2rem), 47.5rem);
   min-height: 100svh;

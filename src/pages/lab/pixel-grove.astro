@@ -1,0 +1,52 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="Pixel Grove · Lab" description="Pixel Grove: three pixel trees that shake and shed petals and leaves when you poke them.">
+  <main class="lab">
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+    <div class="lab-stage" id="stage">
+      <canvas
+        class="focus-ring"
+        id="scene"
+        tabindex="0"
+        data-src={`${base}lab/pixel-grove/`}
+        aria-label="Three pixel trees: cherry, bush and maple. Click a tree to shake it and let petals and leaves fall; press Enter to shake all."
+      ></canvas>
+    </div>
+    <p class="lab-hint" id="hint">Loading…</p>
+  </main>
+</Layout>
+
+<style>
+  .lab {
+    width: min(calc(100% - 2rem), 75rem);
+  }
+
+  .lab-stage {
+    width: min(calc(100vw - 2rem), 75rem);
+    display: grid;
+    justify-items: center;
+  }
+
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+  }
+
+</style>
+
+<script>
+  import { byId } from '../../lib/dom';
+  import { mountGrove } from '../../labs/pixel-grove';
+
+  mountGrove(
+    byId('scene', HTMLCanvasElement),
+    byId('stage', HTMLElement),
+    byId('hint', HTMLElement),
+  );
+</script>

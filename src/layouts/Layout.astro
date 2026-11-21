@@ -3,16 +3,14 @@ import '../styles/global.css';
 
 interface Props {
   title: string;
-  description?: string;
+  description: string;
 }
 
-const {
-  title,
-  description = 'Personal website of Pleasure1234',
-} = Astro.props;
+const { title, description } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const base = import.meta.env.BASE_URL;
+const image = new URL(`${base}avatar.png`, Astro.site);
 ---
 <!doctype html>
 <html lang="en">
@@ -23,6 +21,18 @@ const base = import.meta.env.BASE_URL;
     <meta name="description" content={description} />
     <link rel="manifest" href={`${base}site.webmanifest`} />
     <link rel="canonical" href={canonicalURL} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Pleasure1234" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={image} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@yiming9876" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    <slot name="head" />
     <meta name="theme-color" content="#f3efe5" />
     <link rel="icon" href={`${base}favicon.ico`} />
     <link rel="apple-touch-icon" href={`${base}apple-touch-icon.png`} />

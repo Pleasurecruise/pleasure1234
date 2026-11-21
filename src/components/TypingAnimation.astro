@@ -53,22 +53,24 @@ const { lines, duration, delay } = Astro.props;
 </div>
 
 <script>
-  document.querySelectorAll<HTMLElement>('.typing-animation').forEach((root) => {
-    const lines = Array.from(root.querySelectorAll<HTMLElement>('.typing-line'));
-    const duration = Number(root.dataset.duration);
-    const delay = Number(root.dataset.delay);
+  import { find, findAll, need } from '../lib/dom';
+
+  findAll(document, '.typing-animation', HTMLElement).forEach((root) => {
+    const lines = findAll(root, '.typing-line', HTMLElement);
+    const duration = Number(need(root.dataset.duration, 'data-duration'));
+    const delay = Number(need(root.dataset.delay, 'data-delay'));
     const lineDelay = 280;
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     const revealAll = () => {
-      root.querySelectorAll<HTMLElement>('.typing-token').forEach((token) => {
-        const output = token.querySelector<HTMLElement>('.typing-glyphs')!;
-        output.textContent = token.dataset.text!;
+      findAll(root, '.typing-token', HTMLElement).forEach((token) => {
+        const output = find(token, '.typing-glyphs', HTMLElement);
+        output.textContent = need(token.dataset.text, 'data-text');
       });
       root.querySelectorAll('.ann').forEach((ann) => ann.classList.add('is-typed'));
-      root.querySelectorAll<HTMLButtonElement>('.audio-trigger').forEach((button) => { button.hidden = false; });
-      root.querySelectorAll<HTMLElement>('.typing-cursor').forEach((cursor) => { cursor.hidden = true; });
+      findAll(root, '.audio-trigger', HTMLButtonElement).forEach((button) => { button.hidden = false; });
+      findAll(root, '.typing-cursor', HTMLElement).forEach((cursor) => { cursor.hidden = true; });
     };
 
     if (reduceMotion) {
@@ -79,12 +81,12 @@ const { lines, duration, delay } = Astro.props;
     async function run() {
       await sleep(delay);
       for (const [lineIndex, line] of lines.entries()) {
-        const cursors = root.querySelectorAll<HTMLElement>('.typing-cursor');
+        const cursors = findAll(root, '.typing-cursor', HTMLElement);
         cursors.forEach((cursor, index) => cursor.hidden = index !== lineIndex);
-        const tokens = Array.from(line.querySelectorAll<HTMLElement>('.typing-token'));
+        const tokens = findAll(line, '.typing-token', HTMLElement);
         for (const token of tokens) {
-          const output = token.querySelector<HTMLElement>('.typing-glyphs')!;
-          const characters = Array.from(token.dataset.text!);
+          const output = find(token, '.typing-glyphs', HTMLElement);
+          const characters = Array.from(need(token.dataset.text, 'data-text'));
           for (let index = 1; index <= characters.length; index++) {
             output.textContent = characters.slice(0, index).join('');
             await sleep(duration);
@@ -92,11 +94,10 @@ const { lines, duration, delay } = Astro.props;
           const annotation = token.closest('.ann');
           if (annotation) annotation.classList.add('is-typed');
         }
-        const audioButton = line.querySelector<HTMLButtonElement>('.audio-trigger');
-        if (audioButton) audioButton.hidden = false;
+        findAll(line, '.audio-trigger', HTMLButtonElement).forEach((button) => { button.hidden = false; });
         if (lineIndex < lines.length - 1) await sleep(lineDelay);
       }
-      root.querySelectorAll<HTMLElement>('.typing-cursor').forEach((cursor) => { cursor.hidden = true; });
+      findAll(root, '.typing-cursor', HTMLElement).forEach((cursor) => { cursor.hidden = true; });
     }
 
     const observer = new IntersectionObserver(([entry]) => {
@@ -106,8 +107,8 @@ const { lines, duration, delay } = Astro.props;
     }, { threshold: 0.15 });
     observer.observe(root);
 
-    root.querySelectorAll<HTMLButtonElement>('.audio-trigger').forEach((button) => {
-      const audio = button.querySelector<HTMLAudioElement>('audio')!;
+    findAll(root, '.audio-trigger', HTMLButtonElement).forEach((button) => {
+      const audio = find(button, 'audio', HTMLAudioElement);
       button.addEventListener('click', () => {
         audio.currentTime = 0;
         void audio.play();

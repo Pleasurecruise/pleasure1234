@@ -1,0 +1,46 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="Sunbeam · Lab" description="Sunbeam: a pixel cat that is yours alone. It keeps your local time, naps in a patch of sunlight, and gets hungry while you are away.">
+  <main>
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+    <div class="lab-stage" id="stage">
+      <canvas
+        id="room"
+        tabindex="0"
+        aria-label="Your cat, a cardboard box, a yarn ball and a food bowl. Drag over the cat to pet it, tap it to make it meow, tap the bowl to fill it, toss the yarn, lift, swing or throw the box, and lift or throw the dish; tapping the dish pours a scoop of kibble, which spills once it is full. Keys: Enter pets, F fills the bowl, Space throws the yarn, M calls the cat, B taps the box, T throws the box."
+      ></canvas>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  :global(body) {
+    overflow: hidden;
+  }
+
+  .lab-stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    margin-inline: auto;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+  }
+
+</style>
+
+<script>
+  import { byId } from '../../lib/dom';
+  import { mountSunbeam } from '../../labs/sunbeam';
+
+  mountSunbeam(byId('room', HTMLCanvasElement), byId('stage', HTMLElement));
+</script>

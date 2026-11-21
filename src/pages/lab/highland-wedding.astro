@@ -1,0 +1,82 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="Highland Wedding · Lab" description="Highland Wedding: a photo of a loch in the Highlands turned into live pixel art, with wind over the grass and water you can ripple.">
+  <main class="glen">
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+    <div class="lab-stage" id="stage">
+      <div class="lab-card" id="card">
+        <canvas
+        id="scene"
+        tabindex="0"
+        data-src={`${base}lab/highland-wedding/photo.png`}
+        aria-label="A wedding party on the grass beside a loch, between misty mountains. Drag across the scene to send a gust of wind; touch the water to ripple it. Arrow keys send a gust, Enter drops a stone."
+        ></canvas>
+      </div>
+    </div>
+    <p class="lab-hint" id="hint">Loading…</p>
+  </main>
+</Layout>
+
+<style>
+  /* One screen, no scroll: the art sits on a dark card, contained, at whole pixels. */
+  :global(html:has(.glen)),
+  :global(body:has(.glen)) {
+    overflow: hidden;
+  }
+
+  .glen {
+    height: 100svh;
+    box-sizing: border-box;
+    padding: 3rem 1rem 1rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+  }
+
+  /* the stage only measures the room; the card hugs the art inside it */
+  .lab-stage {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  .lab-card {
+    padding: clamp(0.5rem, 2.5vmin, 1.75rem);
+    background: #121416;
+    border-radius: clamp(10px, 2vmin, 18px);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 24px 60px -30px rgb(0 0 0 / 0.6);
+  }
+
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  canvas:active {
+    cursor: grabbing;
+  }
+
+  canvas:focus-visible {
+    outline: 2px solid rgb(255 255 255 / 0.4);
+    outline-offset: 4px;
+  }
+
+</style>
+
+<script>
+  import { byId, need } from '../../lib/dom';
+  import { mountGlen } from '../../labs/highland-wedding';
+
+  const cv = byId('scene', HTMLCanvasElement);
+  mountGlen(cv, byId('stage', HTMLElement), byId('card', HTMLElement), byId('hint', HTMLElement), need(cv.dataset.src, 'data-src on the glen canvas'));
+</script>

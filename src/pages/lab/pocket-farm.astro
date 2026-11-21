@@ -1,0 +1,46 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="Pocket Farm · Lab" description="A tiny block farm: textured cubes, crops on crossed planes, and a koi in the pond.">
+  <main class="lab">
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+    <div class="lab-stage" id="stage">
+      <canvas
+        class="focus-ring"
+        id="farm"
+        tabindex="0"
+        aria-label="A tiny block farm. Click the crops to grow and harvest them, click the pond for bubbles, click the sign to wiggle it. Press Enter to grow everything."
+      ></canvas>
+    </div>
+    <p class="lab-hint" id="hint">Poke the crops, the pond, or the sign. Sweep over drops to pick them up.</p>
+  </main>
+</Layout>
+
+<style>
+  .lab-stage {
+    width: 100%;
+    display: grid;
+    justify-items: center;
+  }
+
+  canvas {
+    display: block;
+    touch-action: manipulation;
+  }
+
+</style>
+
+<script>
+  import { byId } from '../../lib/dom';
+  import { mountFarm } from '../../labs/pocket-farm';
+
+  const hint = byId('hint', HTMLElement);
+  mountFarm(
+    byId('farm', HTMLCanvasElement),
+    byId('stage', HTMLElement),
+    (wheat, carrot) => { hint.textContent = `Wheat ${wheat} · Carrots ${carrot}`; },
+  );
+</script>

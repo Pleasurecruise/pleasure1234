@@ -1,0 +1,16 @@
+# Pleasure1234
+
+> Landing page of Pleasure1234 (Yiming Wang), linking to every part of the personal site.
+
+## Sites
+
+- [you-find.me](https://you-find.me/): Personal site with CV, story, social links and an AI chat. Full profile at https://you-find.me/llms.txt
+- [Blog](https://knowledge.you-find.me/): Public multilingual long-form writing. Index at https://knowledge.you-find.me/llms.txt
+- [Memos](https://memos.you-find.me/): Short notes and thoughts. Index at https://memos.you-find.me/llms.txt
+- [Moment](https://moment.you-find.me/): Photo gallery, journey map, collections and guestbook. Index at https://moment.you-find.me/llms.txt
+- [My Design](https://design.you-find.me/): Personal design system. Index at https://design.you-find.me/llms.txt
+
+## Elsewhere
+
+- [GitHub](https://github.com/Pleasurecruise)
+- [X](https://x.com/yiming9876)
