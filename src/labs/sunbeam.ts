@@ -77,7 +77,19 @@ function capsule(buf: Uint32Array, ax: number, ay: number, bx: number, by: numbe
   }
 }
 
-/** Convex polygon fill. */
+function taper(buf: Uint32Array, ax: number, ay: number, bx: number, by: number, ra: number, rb: number, p: Paint) {
+  const r = Math.max(ra, rb);
+  const x0 = Math.max(0, Math.floor(Math.min(ax, bx) - r)), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + r));
+  const y0 = Math.max(0, Math.floor(Math.min(ay, by) - r)), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by) + r));
+  const vx = bx - ax, vy = by - ay, len2 = Math.max(vx * vx + vy * vy, 1e-6);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const px = x + 0.5 - ax, py = y + 0.5 - ay;
+    const t = clamp((px * vx + py * vy) / len2, 0, 1);
+    const dx = px - vx * t, dy = py - vy * t, rr = ra + (rb - ra) * t;
+    if (dx * dx + dy * dy <= rr * rr) buf[y * W + x] = at(p, x, y);
+  }
+}
+
 function poly(buf: Uint32Array, pts: number[], p: Paint) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (let i = 0; i < pts.length; i += 2) {
@@ -128,7 +140,6 @@ function line(buf: Uint32Array, x0: number, y0: number, x1: number, y1: number, 
 
 let MASK = new Uint8Array(W * H);
 
-/** Outline a layer's silhouette. */
 function outline(layer: Uint32Array, outer: Col) {
   for (let i = 0; i < W * H; i++) MASK[i] = layer[i] ? 1 : 0;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -138,7 +149,6 @@ function outline(layer: Uint32Array, outer: Col) {
   }
 }
 
-/** Outline the silhouette, and draw inner lines where a part meets one drawn before it (except parts in `seamless`). */
 function outlineParts(layer: Uint32Array, outer: Col, ids: Uint8Array, inner: Col, seamless: Set<number>) {
   outline(layer, outer);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -190,6 +200,7 @@ interface Pose {
   bx: number; by: number; brx: number; bry: number; tilt: number; hx: number; hy: number;
   legF: number; legB: number; haunch: number; tailA: number; tailC: number; tf: number;
   eye: number; ear: number; front: number; paw: number; pawX: number; pawY: number; wig: number;
+  arch: number; bristle: number;
 }
 
 type Blob = { x: number; y: number; rx: number; ry: number };
@@ -200,32 +211,33 @@ type Blob = { x: number; y: number; rx: number; ry: number };
  */
 function torso(P: Pose, bx: number, by: number, bry: number) {
   const ux = Math.cos(P.tilt), uy = Math.sin(P.tilt), s = Math.abs(uy), L = P.brx;
-  const blob = (k: number, rx: number, ry: number): Blob =>
-    ({ x: bx + ux * L * k, y: by + uy * L * k, rx: rx + (ry - rx) * s, ry: ry + (rx - ry) * s });
-  const chest = blob(0.46, L * 0.46, bry * 1.02), waist = blob(0, L * 0.6, bry * 0.8), rump = blob(-0.5, L * 0.48, bry * 0.94);
+  const blob = (k: number, drop: number, rx: number, ry: number): Blob =>
+    ({ x: bx + ux * L * k - uy * drop, y: by + uy * L * k + ux * drop, rx: rx + (ry - rx) * s, ry: ry + (rx - ry) * s });
+  const chest = blob(0.46, bry * 0.12, L * 0.46, bry * 1.06), waist = blob(0, -bry * (0.12 + P.arch * 0.95), L * 0.6, bry * 0.78), rump = blob(-0.5, 0, L * 0.48, bry * 0.94);
   return {
     ux, uy, chest, waist, rump,
-    shoulder: { x: chest.x + 0.5, y: chest.y + chest.ry * 0.45 },
-    hip: { x: rump.x - 0.5, y: rump.y + rump.ry * 0.7 },
+    shoulder: { x: chest.x + 0.5, y: chest.y + chest.ry * 0.35 },
+    hip: { x: rump.x + 1, y: rump.y + rump.ry * 0.45 },
     neck: { x: chest.x + chest.rx * 0.35, y: chest.y - chest.ry * 0.5 },
     tail: { x: rump.x - ux * rump.rx * 0.8, y: rump.y - uy * rump.rx * 0.8 - rump.ry * 0.35 },
   };
 }
 
-/** Centre of the muzzle: forward in profile, centred when the cat looks at you. */
 const muzzleX = (P: Pose) => P.hx + 5.2 * (1 - P.front);
 
 function fur(c: Coat, part: Part, lx: number, ly: number, P: Pose, seed: number): Col {
   let col = c.base;
   const mx = muzzleX(P), ux = Math.cos(P.tilt), uy = Math.sin(P.tilt);
   const along = (lx - P.bx) * ux + (ly - P.by) * uy, down = -(lx - P.bx) * uy + (ly - P.by) * ux;
-  const belly = part === 'body' && down > P.bry * 0.38;
+  const bw = part === 'body' ? clamp((down - P.bry * 0.3) / (P.bry * 0.35), 0, 1) * clamp((P.brx * 0.36 - Math.abs(along)) / (P.brx * 0.14), 0, 1) : 0;
+  const belly = bw > 0.6;
   const chest = part === 'body' && along > P.brx * 0.3 && down > -P.bry * 0.2;
   const muzzle = part === 'head' && ((lx - mx) / (3.6 + P.front)) ** 2 + ((ly - P.hy - 3) / 3) ** 2 < 1;
   const chin = part === 'head' && ly > P.hy + 4.4 && Math.abs(lx - mx) < 4;
   switch (c.kind) {
     case 'tabby': {
       if (muzzle || chin || belly) col = c.light;
+      else if (bw > 0.25) col = mix(c.base, c.light, 0.5);
       else if (part === 'body' && down < P.bry * 0.2 && (Math.floor(along + 80) % 5) < 2) col = c.mark;
       else if (part === 'haunch' && (Math.floor(ly * 0.55 + lx * 0.3 + 80) % 4) < 1.3) col = c.mark;
       else if (part === 'tail' && (Math.floor((lx - ly) * 0.55 + 80) % 4) < 1.4) col = c.mark;
@@ -255,35 +267,36 @@ function fur(c: Coat, part: Part, lx: number, ly: number, P: Pose, seed: number)
 }
 
 const base: Pose = {
-  bx: 0, by: -17, brx: 22, bry: 7.5, tilt: 0, hx: 23, hy: -27.5, legF: 1, legB: 1, haunch: 0, tailA: 0.45, tailC: 0.08, tf: 0,
-  eye: 1, ear: 0, front: 0, paw: 0, pawX: 0, pawY: 0, wig: 0,
+  bx: 0, by: -18.5, brx: 22, bry: 7.1, tilt: 0, hx: 23, hy: -28.5, legF: 1, legB: 1, haunch: 0, tailA: 0.55, tailC: 0.13, tf: 0,
+  eye: 1, ear: 0, front: 0, paw: 0, pawX: 0, pawY: 0, wig: 0, arch: 0, bristle: 0,
 };
 const pose = (o: Partial<Pose>): Pose => ({ ...base, ...o });
 const STRIDE = 10, DUTY = 0.62;
 const sit = { bx: -2, by: -14.5, brx: 17, tilt: -1.05, hx: 4, hy: -33.5, legB: 0, haunch: 1, tailA: -1.3, tailC: -0.17, tf: 1, front: 0.35 };
 const POSES = {
   stand: pose({}),
-  walk: pose({ hx: 24, hy: -26, tailA: 0.75, tailC: 0.1 }),
+  walk: pose({ hx: 24, hy: -27.5, tailA: 0.8, tailC: 0.16 }),
   sit: pose(sit),
   beg: pose({ ...sit, front: 1 }),
-  loaf: pose({ by: -9.5, brx: 21, bry: 7.4, hx: 19.5, hy: -17, legF: 0, legB: 0, tailA: -0.35, tailC: -0.13, tf: 1, eye: 0.5, front: 0.3 }),
-  sleep: pose({ by: -8, brx: 19, bry: 7, hx: 12.5, hy: -8, legF: 0, legB: 0, tailA: -0.5, tailC: -0.28, tf: 1, eye: 0, ear: 0.15, front: 0.5 }),
+  loaf: pose({ by: -9.5, brx: 21, bry: 7.4, hx: 19.5, hy: -17, legF: 0, legB: 0, tailA: -0.2, tailC: -0.24, tf: 1, eye: 0.5, front: 0.3 }),
+  sleep: pose({ by: -8, brx: 17.5, bry: 7, hx: 11.5, hy: -8, legF: 0, legB: 0, tailA: -0.2, tailC: -0.4, tf: 1, eye: 0, ear: 0.15, front: 0.5 }),
   crouch: pose({ bx: -1, by: -10.5, brx: 22, bry: 6.4, tilt: 0.1, hx: 21.5, hy: -14, legF: 0.6, legB: 0.6, tailA: 0.05, tailC: 0.015, ear: 0.3 }),
   eat: pose({ tilt: 0.12, hx: 25, hy: -11, tailA: 0.5 }),
   groom: pose({ ...sit, hx: 6, hy: -30, eye: 0, paw: 1, pawX: 9, pawY: -28, front: 0.2 }),
   swat: pose({ ...sit, paw: 1, pawX: 18, pawY: -24, ear: 1, eye: 0.5 }),
+  tuck: pose({ by: -18, brx: 20, bry: 7.2, tilt: -0.12, hx: 21, hy: -27, legF: 0.35, legB: 0.35, tailA: 0.25, tailC: 0.1 }),
+  arch: pose({ by: -21.5, brx: 19, bry: 7, hx: 22.5, hy: -25, tailA: 1.5, tailC: 0.015, ear: 1, arch: 1, bristle: 1 }),
   air: pose({ brx: 25, bry: 6.6, tilt: -0.12, hx: 27, hy: -24, tailA: 0.25, tailC: 0.015 }),
   stretch: pose({ by: -15, brx: 23, bry: 7, tilt: 0.32, hx: 25, hy: -10, tailA: 1.05, tailC: 0.04, eye: 0.2 }),
 };
 type PoseName = keyof typeof POSES;
 const POSE_KEYS: readonly (keyof Pose)[] = [
   'bx', 'by', 'brx', 'bry', 'tilt', 'hx', 'hy', 'legF', 'legB', 'haunch', 'tailA', 'tailC', 'tf',
-  'eye', 'ear', 'front', 'paw', 'pawX', 'pawY', 'wig',
+  'eye', 'ear', 'front', 'paw', 'pawX', 'pawY', 'wig', 'arch', 'bristle',
 ];
 
 type Mode = 'idle' | 'walk' | 'eat' | 'sleep' | 'groom' | 'beg' | 'play' | 'stalk' | 'wiggle' |
-  'pounce' | 'petted' | 'swat' | 'hop' | 'stretch' | 'look';
-/** What a walk is for, so interruptions can tell a stroll from an errand. */
+  'pounce' | 'petted' | 'swat' | 'hop' | 'stretch' | 'look' | 'spook';
 type Intent = 'wander' | 'errand';
 
 interface Cat {
@@ -294,27 +307,25 @@ interface Cat {
   jump: Jump | null;
 }
 
-/** gx/gy: where the pointer grabbed it; ox: offset from the box centre while it sits in the box. */
 /** A hop or pounce: from (x0,y0) at height z0 to (x1,y1) on the ground, peaking h above the straight line. */
 interface Jump { x0: number; y0: number; x1: number; y1: number; h: number; z0: number; into: boolean; then: (() => void) | null }
 
 interface Yarn { x: number; y: number; z: number; vx: number; vy: number; vz: number; held: boolean; roll: number; trail: [number, number][]; inBox: boolean; ox: number; gx: number; gy: number }
-/** Food dish; like the box it can be lifted, swung and thrown, and spills when tipped. */
 interface Dish { x: number; y: number; z: number; vx: number; vy: number; vz: number; held: boolean; angle: number; spin: number; gx: number; gy: number; spill: number }
-/** One piece of kibble with its own physics; `pour` means it is falling toward the dish. */
 interface Kibble { x: number; y: number; z: number; vx: number; vy: number; vz: number; pour: boolean }
+interface Scoop { left: number; acc: number; show: number }
 /** Cardboard box; x is the centre of its front face, y the ground line under it. */
 interface Box { x: number; y: number; z: number; vx: number; vy: number; vz: number; held: boolean; tipped: boolean; shake: number; angle: number; spin: number; gx: number; gy: number }
 interface Particle { x: number; y: number; vx: number; vy: number; g: number; life: number; max: number; kind: SpriteName }
 
-export type Sound = 'meow' | 'mew' | 'pour' | 'crunch' | 'hiss' | 'thud' | 'clink';
+export type Sound = 'meow' | 'mew' | 'laowu' | 'beg' | 'trill' | 'hiss' | 'spook' | 'clatter' | 'pour' | 'crunch' | 'thud' | 'clink';
 
 export interface Save { v: 1; coat: CoatKey; seed: number; t: number; full: number; rest: number; love: number; bowl: number }
 
 export interface World {
   coat: Coat; coatKey: CoatKey; seed: number;
   hour: number; time: number; needs: { full: number; rest: number; love: number }; bowl: number;
-  cat: Cat; yarn: Yarn; box: Box; dish: Dish; kibble: Kibble[]; parts: Particle[];
+  cat: Cat; yarn: Yarn; box: Box; dish: Dish; kibble: Kibble[]; scoop: Scoop; parts: Particle[];
   pointer: { x: number; y: number; on: boolean; energy: number; moved: number };
   sounds: Sound[];
 }
@@ -323,7 +334,6 @@ export function adopt(now: number, coat: CoatKey): Save {
   return { v: 1, coat, seed: Math.floor(Math.random() * 1e6), t: now, full: 0.32, rest: 0.8, love: 0.5, bowl: 0 };
 }
 
-/** Apply real time spent away: the cat naps, gets peckish, misses you, and eats what is in the bowl. */
 export function elapse(w: World, seconds: number) {
   const h = seconds / 3600, n = w.needs;
   n.full = clamp(n.full - 0.07 * h, 0, 1);
@@ -349,17 +359,15 @@ export function create(save: Save, now: number): World {
     yarn: { x: W / 2 - 64, y: WALK_BOTTOM - 6, z: 0, vx: 0, vy: 0, vz: 0, held: false, roll: 0, trail: [], inBox: false, ox: 0, gx: 0, gy: 0 },
     box: { x: W / 2 + 88, y: WALK_TOP - 2, z: 0, vx: 0, vy: 0, vz: 0, held: false, tipped: false, shake: 0, angle: 0, spin: 0, gx: 0, gy: 0 },
     dish: { x: W / 2 + 130, y: WALK_BOTTOM - 4, z: 0, vx: 0, vy: 0, vz: 0, held: false, angle: 0, spin: 0, gx: 0, gy: 0, spill: 0 },
-    kibble: [], parts: [], pointer: { x: 0, y: 0, on: false, energy: 0, moved: -9 }, sounds: [],
+    kibble: [], scoop: { left: 0, acc: 0, show: 0 }, parts: [], pointer: { x: 0, y: 0, on: false, energy: 0, moved: -9 }, sounds: [],
   };
   const gone = (now - save.t) / 1000;
   if (gone > 60) elapse(w, gone);
   return w;
 }
 
-/** Where the ground sits: a little below the middle of the window, so there is room to throw things up. */
 const groundFor = (h: number) => clamp(Math.round(h * 0.55 + 40), 124, h - 12);
 
-/** Fit the scene to the window, keeping everything where it was relative to the centre and the ground. */
 export function resize(w: World | null, width: number, height: number) {
   const nw = Math.max(240, Math.round(width)), nh = Math.max(136, Math.round(height));
   if (nw === W && nh === H) return;
@@ -380,7 +388,7 @@ export function snapshot(w: World, now: number): Save {
 
 const BOX_HALF = 28, BOX_TALL = 20, TIPPED_TALL = 28, BOX_DX = 10, BOX_DY = -9;
 
-const seat = (b: Box) => (b.tipped ? { x: b.x + 4, y: b.y - 2 } : { x: b.x + 3, y: b.y - 5 });
+const seat = (b: Box) => (b.tipped ? { x: b.x + 1, y: b.y - 2 } : { x: b.x + 3, y: b.y - 5 });
 const boxDoor = (b: Box) => ({ x: clamp(b.x + 3, WALK_LEFT, WALK_RIGHT), y: clamp(b.y + 3, WALK_TOP, WALK_BOTTOM) });
 const reachable = (b: Box) => b.x + 3 > WALK_LEFT + 8 && b.x + 3 < WALK_RIGHT - 8;
 
@@ -388,7 +396,6 @@ const isNight = (h: number) => h >= 21.5 || h < 6;
 
 interface Beam { cx: number; top: number; L: number; s: number; half: number; a: number; col: Col }
 
-/** A window-shaped patch of light on the ground. It drifts right to left over the day and stretches toward evening. */
 function beamOf(h: number): Beam | null {
   const e = Math.sin(Math.PI * (h - 6.5) / 12);
   if (h > 6.5 && h < 18.5 && e > 0.04) {
@@ -413,11 +420,6 @@ function beamCover(b: Beam, x: number, y: number) {
   return Math.min(1, Math.ceil(edge / 2) / 3);
 }
 
-function beamAt(h: number, x: number, y: number) {
-  const b = beamOf(h);
-  return b ? beamCover(b, x, y) * b.a : 0;
-}
-
 function beamSpot(h: number) {
   const b = beamOf(h);
   if (!b || isNight(h)) return null;
@@ -436,14 +438,14 @@ function setMode(w: World, mode: Mode, p: PoseName, dur: number) {
 function leap(w: World, x1: number, y1: number, h: number, into: boolean, then: (() => void) | null, mode: 'hop' | 'pounce', dur: number): Jump {
   const c = w.cat, j: Jump = { x0: c.x, y0: c.y, x1, y1, h, z0: c.z, into, then };
   c.jump = j;
-  setMode(w, mode, 'air', dur);
+  setMode(w, mode, mode === 'hop' ? 'tuck' : 'air', dur);
   return j;
 }
 
 function hop(w: World, into: boolean, then: () => void) {
   const c = w.cat, s = into ? seat(w.box) : boxDoor(w.box);
   c.dir = into ? (s.x >= c.x ? 1 : -1) : Math.random() < 0.5 ? -1 : 1;
-  return leap(w, s.x, s.y, w.box.tipped ? 6 : 18, into, then, 'hop', w.box.tipped ? 0.35 : 0.5);
+  return leap(w, s.x, s.y, w.box.tipped ? 7 : BOX_TALL + 12, into, then, 'hop', w.box.tipped ? 0.35 : 0.55);
 }
 
 function walkTo(w: World, x: number, y: number, speed: number, intent: Intent, then: () => void) {
@@ -455,18 +457,16 @@ function walkTo(w: World, x: number, y: number, speed: number, intent: Intent, t
   c.speed = speed; c.then = then;
 }
 
-/** Sitting or loafing, whichever it feels like. */
 const restPose = (): PoseName => (Math.random() < 0.5 ? 'loaf' : 'sit');
 
 function idle(w: World, p: PoseName) {
   setMode(w, 'idle', w.cat.inBox && p === 'sit' && !w.box.tipped ? 'loaf' : p, rand(3, 8));
 }
 
-/** Walk to the box, tracking it if it moves, and hop in only from right in front of it. */
 function intoBox(w: World, then: () => void) {
   if (!reachable(w.box)) { idle(w, restPose()); return; }
   const d = boxDoor(w.box);
-  walkTo(w, d.x, d.y, 36, 'errand', () => {
+  walkTo(w, d.x, d.y, 52, 'errand', () => {
     const b = w.box, door = boxDoor(b);
     if (b.held || b.z > 1 || !reachable(b)) idle(w, restPose());
     else if (Math.hypot(door.x - w.cat.x, door.y - w.cat.y) > 6) intoBox(w, then);
@@ -483,7 +483,6 @@ function goSleep(w: World) {
   else setMode(w, 'sleep', 'sleep', rand(40, 110));
 }
 
-/** Where the cat stands to eat from (or stare at) the dish; it comes from whichever side has room. */
 function dishSpot(w: World, reach: number) {
   const d = w.dish, side = d.x - reach >= WALK_LEFT ? 1 : -1;
   return { x: d.x - side * reach, y: clamp(d.y - 1, WALK_TOP, WALK_BOTTOM), side };
@@ -492,7 +491,7 @@ const dishBusy = (d: Dish) => d.held || d.z > 1;
 
 function goEat(w: World) {
   const s0 = dishSpot(w, 31);
-  walkTo(w, s0.x, s0.y, 34, 'errand', () => {
+  walkTo(w, s0.x, s0.y, 54, 'errand', () => {
     const s1 = dishSpot(w, 31), c = w.cat;
     if (dishBusy(w.dish)) idle(w, 'sit');
     else if (Math.hypot(s1.x - c.x, s1.y - c.y) > 6) goEat(w);
@@ -503,12 +502,11 @@ function goEat(w: World) {
 
 function goBeg(w: World) {
   const s0 = dishSpot(w, 28);
-  walkTo(w, s0.x, s0.y + 3, 34, 'errand', () => { w.cat.dir = dishSpot(w, 28).side; setMode(w, 'beg', 'beg', 24); });
+  walkTo(w, s0.x, s0.y + 3, 48, 'errand', () => { w.cat.dir = dishSpot(w, 28).side; setMode(w, 'beg', 'beg', 24); });
 }
 
 const settled = (k: Kibble) => !k.pour && k.z === 0 && k.vz === 0;
 
-/** Go and eat kibble off the floor, nearest piece first. */
 function goKibble(w: World) {
   const c = w.cat;
   let best: Kibble | null = null, bd = Infinity;
@@ -521,10 +519,19 @@ function goKibble(w: World) {
   const side = best.x >= c.x ? 1 : -1, tx = best.x - side * 30;
   const side2 = tx < WALK_LEFT || tx > WALK_RIGHT ? -side : side;
   const k = best;
-  walkTo(w, k.x - side2 * 30, k.y - 1, 30, 'errand', () => { c.dir = side2; c.floor = true; setMode(w, 'eat', 'eat', 30); });
+  walkTo(w, k.x - side2 * 30, k.y - 1, 50, 'errand', () => { c.dir = side2; c.floor = true; setMode(w, 'eat', 'eat', 30); });
 }
 
 function goGroom(w: World) { setMode(w, 'groom', 'groom', rand(2.5, 6)); }
+
+function spook(w: World, fromX: number) {
+  const c = w.cat;
+  if (c.inBox || c.jump !== null || c.mode === 'spook') return;
+  c.dir = fromX >= c.x ? 1 : -1;
+  c.grumpy = Math.max(c.grumpy, 5); c.purr = 0; c.moving = false; c.follow = null; c.then = null;
+  setMode(w, 'spook', 'arch', rand(1.5, 2.1));
+  burst(w, 'vein', 1); w.sounds.push('spook');
+}
 
 function goPlay(w: World) {
   w.cat.bats = 0;
@@ -535,7 +542,7 @@ function goPlay(w: World) {
 function goVisit(w: World) {
   walkTo(w, clamp(w.cat.x + rand(-50, 50), W / 2 - 70, W / 2 + 40), WALK_BOTTOM, 34, 'errand', () => {
     setMode(w, 'look', 'beg', 4);
-    w.cat.mouth = 0.5; w.sounds.push('meow'); burst(w, 'note', 1);
+    w.cat.mouth = 0.5; w.sounds.push(Math.random() < 0.5 ? 'trill' : 'laowu'); burst(w, 'note', 1);
   });
 }
 
@@ -619,19 +626,17 @@ export function tap(w: World) {
     burst(w, 'vein', 1);
     return;
   }
-  c.mouth = 0.5; burst(w, 'note', 1); w.sounds.push('meow');
+  c.mouth = 0.5; burst(w, 'note', 1); w.sounds.push(Math.random() < 0.35 ? 'laowu' : 'meow');
   if (!busy(c)) setMode(w, 'look', c.inBox && !w.box.tipped ? 'loaf' : 'beg', 2.5);
 }
 
-const KIB = 0.02, SCOOP = 20;
+const KIB = 0.02, SCOOP = 12, POUR_RATE = 22, SCOOP_Z = 38;
 
-/** Tip a scoop over the dish. Each piece lands in it while there is room and rolls off once it is full. */
 export function fillBowl(w: World) {
-  const d = w.dish;
+  const s = w.scoop;
   w.sounds.push('pour');
-  for (let i = 0; i < SCOOP; i++) {
-    w.kibble.push({ x: d.x + rand(-7, 7), y: d.y - 1 + rand(-2.5, 2.5), z: d.z + rand(32, 64), vx: rand(-6, 6), vy: 0, vz: rand(-20, 0), pour: true });
-  }
+  s.left = Math.min(s.left + SCOOP, SCOOP * 3);
+  s.show = s.left / POUR_RATE + 0.4;
   const c = w.cat;
   if (!awake(c) || c.grumpy > 0 || c.mode === 'eat' || (busy(c) && c.mode !== 'beg')) return;
   if (w.needs.full < 0.95) goEat(w);
@@ -661,7 +666,6 @@ export function throwDish(w: World, vx: number, vy: number) {
   if (d.z > 2 || d.vz > 40) d.spin = clamp(d.vx * 0.02, -16, 16);
 }
 
-/** Tap on the box: an upright box rustles and invites the cat; a tipped one gets stood back up. */
 export function tapBox(w: World) {
   const b = w.box, c = w.cat;
   b.shake = 0.5;
@@ -702,7 +706,6 @@ export function grabBox(w: World, px: number, py: number) {
   b.gx = b.x - px; b.gy = b.y - b.z - py;
 }
 
-/** Up lifts the box; below its footprint drags it nearer. Moving it sideways swings it, which can pour out the cat. */
 export function dragBox(w: World, px: number, py: number, vx: number, dt: number) {
   const b = w.box;
   b.x = px + b.gx;
@@ -723,7 +726,6 @@ export function throwBox(w: World, vx: number, vy: number) {
   else if (Math.abs(b.vx) > 240) { b.vz = 90; b.spin = Math.sign(b.vx) * 7; }
 }
 
-/** How high a ball pops up when knocked along the ground: harder knocks lift it more. */
 const hopFor = (vx: number, vy: number) => 40 + Math.min(60, Math.hypot(vx, vy) * 0.15);
 
 export function flingYarn(w: World, vx: number, vy: number, vz: number) {
@@ -816,7 +818,7 @@ export function step(w: World, dt: number) {
     case 'eat': {
       const mx = c.x + c.dir * 30, my = c.y + 1;
       if (c.floor) {
-        if ((c.tick += dt) > 0.35) {
+        if ((c.tick += dt) > 0.22) {
           c.tick = 0;
           const i = w.kibble.findIndex((k) => settled(k) && Math.abs(k.x - mx) < 7 && Math.abs(k.y - my) < 6);
           if (i >= 0) { w.kibble.splice(i, 1); n.full = Math.min(1, n.full + KIB / 0.7); w.sounds.push('crunch'); }
@@ -831,14 +833,14 @@ export function step(w: World, dt: number) {
         if (!dishBusy(d) && w.bowl > 0.02) goEat(w); else idle(w, 'sit');
         break;
       }
-      if ((c.tick += dt) > 0.45) { c.tick = 0; w.sounds.push('crunch'); }
-      n.full = Math.min(1, n.full + 0.05 * dt);
-      w.bowl = Math.max(0, w.bowl - 0.035 * dt);
+      if ((c.tick += dt) > 0.35) { c.tick = 0; w.sounds.push('crunch'); }
+      n.full = Math.min(1, n.full + 0.07 * dt);
+      w.bowl = Math.max(0, w.bowl - 0.05 * dt);
       if (w.bowl <= 0 || n.full >= 0.99 || c.t > c.dur) goGroom(w);
       break;
     }
     case 'beg':
-      if ((c.tick += dt) > 4) { c.tick = 0; c.mouth = 0.5; burst(w, 'note', 1); w.sounds.push('mew'); }
+      if ((c.tick += dt) > 4) { c.tick = 0; c.mouth = 0.5; burst(w, 'note', 1); w.sounds.push(Math.random() < 0.3 ? 'laowu' : Math.random() < 0.5 ? 'beg' : 'mew'); }
       if (w.bowl > 0.05) goEat(w);
       else if (c.t > c.dur) idle(w, 'loaf');
       break;
@@ -865,6 +867,14 @@ export function step(w: World, dt: number) {
       purr = 1;
       if (w.time - c.lastPet > 1.8) { c.overstim *= 0.5; idle(w, c.pose); }
       break;
+    case 'spook':
+      c.z = Math.sin(Math.PI * ((c.t * 2.6) % 1)) * 3;
+      c.x = clamp(c.x - c.dir * 16 * dt, WALK_LEFT, WALK_RIGHT);
+      if (c.t > c.dur) {
+        c.z = 0;
+        walkTo(w, clamp(c.x - c.dir * 90, WALK_LEFT, WALK_RIGHT), rand(WALK_TOP, WALK_BOTTOM), 44, 'errand', () => goGroom(w));
+      }
+      break;
     case 'swat':
       if (c.t > c.dur) walkTo(w, c.x + (c.x < W / 2 ? 110 : -110), rand(WALK_TOP, WALK_BOTTOM), 40, 'errand', () => goGroom(w));
       break;
@@ -873,7 +883,7 @@ export function step(w: World, dt: number) {
       if (y.held || b.held) { c.moving = false; c.dir = y.x > c.x ? 1 : -1; if (!c.inBox) c.pose = 'crouch'; }
       else if (y.inBox && !b.tipped) {
         if (!c.inBox) { intoBox(w, () => setMode(w, 'play', 'loaf', 8)); break; }
-        if ((c.tick += dt) > 0.8) {
+        if ((c.tick += dt) > 0.55) {
           c.tick = 0; c.swipe = 0.3; c.bats++;
           spillYarn(w);
           y.z = b.z + BOX_TALL; flingYarn(w, (Math.random() < 0.5 ? -1 : 1) * rand(50, 110), rand(20, 50), 150);
@@ -915,7 +925,6 @@ export function step(w: World, dt: number) {
       const j = need(c.jump, 'a jump while hopping');
       const k = Math.min(1, c.t / c.dur);
       if (j.into) {
-        // Track a box that is nudged mid-hop; if it is snatched away, just land.
         const b = w.box, s = seat(b);
         if (b.held || b.z > 1 || Math.hypot(s.x - j.x1, s.y - j.y1) > 14) j.into = false;
         else { j.x1 = s.x; j.y1 = s.y; }
@@ -940,6 +949,7 @@ export function step(w: World, dt: number) {
     }
   }
 
+  skirtBox(w, dt);
   if (c.inBox && c.mode !== 'hop') { const s = seat(w.box); c.x = s.x; c.y = s.y; c.z = w.box.z; }
 
   if (w.time > c.blinkAt + 0.14) c.blinkAt = w.time + rand(2.5, 6);
@@ -961,6 +971,7 @@ export function step(w: World, dt: number) {
 
   stepBox(w, dt);
   stepDish(w, dt);
+  stepScoop(w, dt);
   stepKibble(w, dt);
   stepYarn(w, dt);
 
@@ -972,6 +983,19 @@ export function step(w: World, dt: number) {
 }
 
 const QUARTER = Math.PI / 2;
+
+function skirtBox(w: World, dt: number) {
+  const c = w.cat, b = w.box;
+  if (c.inBox || c.jump !== null || c.z > 0 || b.held || b.z > 1 || Math.abs(b.angle) > 0.25) return;
+  const fp = footprint(b), x0 = fp.x0 - 4, x1 = fp.x1 + 4, back = fp.back - 3, front = fp.front + 2;
+  if (c.x <= x0 || c.x >= x1 || c.y <= back || c.y >= front) return;
+  const edge = c.y > (back + front) / 2 ? front : back;
+  c.y += clamp(edge - c.y, -90 * dt, 90 * dt);
+  if (c.moving) {
+    const goal = c.mode === 'walk' ? c.tx : c.x, end = Math.abs(goal - x0) < Math.abs(goal - x1) ? x0 : x1;
+    c.x += Math.sign(end - c.x) * 24 * dt;
+  }
+}
 
 const footprint = (b: Box) => ({ x0: b.x - BOX_HALF, x1: b.x + BOX_HALF + BOX_DX, back: b.y + BOX_DY, front: b.y });
 
@@ -989,7 +1013,6 @@ function stepBox(w: World, dt: number) {
       const q = Math.round(b.angle / QUARTER), off = b.angle - q * QUARTER;
       w.sounds.push('thud'); b.shake = 0.35;
       if (impact > 90 && Math.abs(off) > 0.35) {
-        // Landed on an edge: bounce and keep turning the way it was going.
         b.vz = impact * 0.38;
         b.spin = Math.sign(off) * Math.max(Math.abs(b.spin) * 0.55, 5);
       } else {
@@ -1014,10 +1037,9 @@ function stepBox(w: World, dt: number) {
   if (b.z < 6 && Math.abs(b.vx) > 1) {
     const dh = w.dish;
     if (!dh.held && dh.z < 6 && dh.x + 15 > f.x0 && dh.x - 15 < f.x1 && dh.y > f.back - 4 && dh.y - 6 < f.front + 2) {
-      // The box shoves the dish along, and the jolt slops some kibble out.
       dh.x = b.vx > 0 ? f.x1 + 15.5 : f.x0 - 15.5;
       dh.vx = b.vx * 0.9; dh.vz = 30; dh.spin = Math.sign(b.vx) * 3;
-      b.vx *= 0.35; b.shake = 0.3; w.sounds.push('clink');
+      b.vx *= 0.35; b.shake = 0.3; w.sounds.push('clatter');
     }
     if (!y.inBox && !y.held && y.z < 6 && y.x > f.x0 - YARN_R && y.x < f.x1 + YARN_R && y.y > f.back - 2 && y.y < f.front + 8) {
       y.x = b.vx > 0 ? f.x1 + YARN_R + 1 : f.x0 - YARN_R - 1;
@@ -1039,14 +1061,12 @@ function landed(w: World, impact: number) {
   if (c.mode === 'hop' || c.z > 1) return;
   if (c.x < f.x0 - 4 || c.x > f.x1 || c.y < f.back - 2 || c.y > f.front + 6) return;
   if (!b.tipped && impact < 260) {
-    // Dropped right over the cat: it lives here now.
     hop(w, true, () => { setMode(w, 'look', 'loaf', 2.5); burst(w, 'note', 1); }).h = 4;
     c.dur = 0.25;
   } else {
     const side = c.x < b.x ? -1 : 1;
     c.dir = side; c.grumpy = Math.max(c.grumpy, 5);
-    leap(w, clamp(c.x + side * 50, WALK_LEFT, WALK_RIGHT), clamp(c.y + 12, WALK_TOP, WALK_BOTTOM), 22, false, () => goGroom(w), 'hop', 0.45);
-    burst(w, 'vein', 1); w.sounds.push('hiss');
+    leap(w, clamp(c.x + side * 50, WALK_LEFT, WALK_RIGHT), clamp(c.y + 12, WALK_TOP, WALK_BOTTOM), 22, false, () => spook(w, b.x), 'hop', 0.45);
   }
 }
 
@@ -1061,7 +1081,6 @@ function emitSpill(w: World, side: number) {
 
 function stepDish(w: World, dt: number) {
   const d = w.dish;
-  // Tipped past the rim: kibble pours out of the low side, faster the further it leans.
   const lean = Math.abs(Math.sin(d.angle)), wrong = Math.cos(d.angle) < 0;
   if ((lean > 0.5 || wrong) && w.bowl >= KIB) {
     d.spill += dt * (wrong ? 40 : (lean - 0.5) * 60);
@@ -1076,9 +1095,10 @@ function stepDish(w: World, dt: number) {
     d.z = 0;
     if (wasUp && impact > 25) {
       w.sounds.push('clink');
+      const c = w.cat;
+      if (impact > 120 && Math.hypot(c.x - d.x, (c.y - d.y) * 2) < 46) spook(w, d.x);
       if (impact > 150) { const n = Math.round((w.bowl / KIB) * clamp((impact - 150) / 250, 0.1, 0.6)); for (let i = 0; i < n; i++) emitSpill(w, Math.random() < 0.5 ? -1 : 1); }
       d.vz = impact > 120 ? impact * 0.25 : 0; d.spin *= 0.3; d.vx *= 0.7;
-      // A dish always comes to rest the right way up.
       d.angle = Math.atan2(Math.sin(d.angle), Math.cos(d.angle));
     } else d.vz = 0;
   }
@@ -1088,6 +1108,18 @@ function stepDish(w: World, dt: number) {
   if (d.x > W + 20) d.x -= W + 40;
   if (d.y < WALK_TOP - 2) { d.y = WALK_TOP - 2; d.vy = Math.abs(d.vy) * 0.15; }
   if (d.y > WALK_BOTTOM + 8) { d.y = WALK_BOTTOM + 8; d.vy = -Math.abs(d.vy) * 0.15; }
+}
+
+function stepScoop(w: World, dt: number) {
+  const s = w.scoop, d = w.dish;
+  s.show = Math.max(0, s.show - dt);
+  if (s.left <= 0) return;
+  s.acc += POUR_RATE * dt;
+  while (s.acc >= 1 && s.left > 0) {
+    s.acc -= 1; s.left--;
+    w.kibble.push({ x: d.x + 3 + rand(-1.5, 1.5), y: d.y - 1 + rand(-1.5, 1.5), z: d.z + SCOOP_Z, vx: rand(-14, 4), vy: rand(-3, 3), vz: rand(-10, 4), pour: true });
+  }
+  if (s.left <= 0) s.acc = 0;
 }
 
 function stepKibble(w: World, dt: number) {
@@ -1101,7 +1133,6 @@ function stepKibble(w: World, dt: number) {
       const over = ((k.x - d.x) / 12) ** 2 + ((k.y - d.y + 1) / 4.5) ** 2 < 1 && Math.abs(d.angle) < 0.4 && !d.held;
       if (over && k.z <= rim && k.z > rim - 10) {
         if (w.bowl < 1 - KIB / 2) { w.bowl = Math.min(1, w.bowl + KIB); list.splice(i, 1); continue; }
-        // Full: it bounces off the heap and over the rim.
         const side = k.x >= d.x ? 1 : -1;
         k.pour = false; k.z = rim + 2; k.vx = side * rand(25, 60); k.vy = rand(-14, 14); k.vz = rand(30, 70);
       }
@@ -1113,8 +1144,8 @@ function stepKibble(w: World, dt: number) {
     if (k.z === 0) {
       k.vx *= Math.exp(-dt * 7); k.vy *= Math.exp(-dt * 7);
       if (k.vz === 0 && Math.hypot(k.vx, k.vy) < 2) { k.vx = k.vy = 0; }
+      k.y = clamp(k.y, WALK_TOP, WALK_BOTTOM + 3);
     }
-    k.y = clamp(k.y, WALK_TOP, WALK_BOTTOM + 3);
     if (k.x < -10 || k.x > W + 10) list.splice(i, 1);
   }
   if (list.length > 220) list.splice(0, list.length - 220);
@@ -1169,6 +1200,8 @@ function stepYarn(w: World, dt: number) {
   }
 
   const c = w.cat, speed = Math.hypot(y.vx, y.vy, y.vz);
+  if (!y.held && !y.inBox && speed > 170 && y.z < 22 && Math.abs(y.x - c.x) < 18 && Math.abs(y.y - c.y) < 8 &&
+      !['play', 'stalk', 'wiggle', 'pounce'].includes(c.mode)) spook(w, y.x);
   if ((speed > 70 || y.inBox) && !y.held && awake(c) && c.grumpy <= 0 && w.needs.rest > 0.3 &&
       ['idle', 'look', 'groom'].includes(c.mode) && Math.hypot(y.x - c.x, y.y - c.y) < 130 && (!y.inBox || Math.random() < dt * 0.4)) goPlay(w);
 }
@@ -1177,6 +1210,7 @@ const C = {
   boxIn: hex('#7d5632'), boxInWall: hex('#a5763f'), boxFront: hex('#d4a465'), boxSide: hex('#b98b52'), boxTop: hex('#ddb377'),
   boxFlap: hex('#e2b97c'), boxFlapIn: hex('#c79a5f'), boxLine: hex('#8a6236'), tape: hex('#efd9a8'),
   bowl: hex('#7fa8d4'), bowlShade: hex('#6890bd'), bowlRim: hex('#b4cfea'), bowlIn: hex('#4d77a3'), bowlBand: hex('#f6f1e7'), bowlLine: hex('#3e5f86'),
+  scoop: hex('#c9d2da'), scoopShade: hex('#9aa6b2'), scoopIn: hex('#7b8794'),
   kib: hex('#a2633a'), kib2: hex('#c07d46'), kib3: hex('#7e4a2a'),
   yarn: hex('#e07489'), yarnHi: hex('#f6aebb'), yarnLo: hex('#b9506a'), yarnLine: hex('#8e3550'),
   pink: hex('#e7909c'), pupil: hex('#1d1818'),
@@ -1261,14 +1295,30 @@ function drawBowl(layer: Uint32Array, w: World) {
   ellipse(layer, x, y - 10, 15, 4.2, C.bowlRim);
   ellipse(layer, x, y - 10, 12.5, 3, C.bowlIn);
   if (w.bowl > 0.01) {
-    const n = Math.ceil(w.bowl * 46), mound = w.bowl * 3.5;
+    const f = Math.min(1, w.bowl), g = Math.sqrt(f), rx = 3 + 9 * g, ry = 0.8 + 2 * g, heap = Math.max(0, f - 0.4) * 8;
+    const cy = y - 9.4 + (1 - g) * 1.2;
+    ellipse(layer, x, cy, rx, ry, mix(C.kib3, INK, 0.2));
+    const n = Math.ceil(f * 70);
     for (let i = 0; i < n; i++) {
       const a = hash(i, 4, 0) * TAU, r = Math.sqrt(hash(i, 5, 0));
-      const px = x + Math.cos(a) * r * 11, py = y - 10 + Math.sin(a) * r * 2.4 - mound * (1 - r * r);
+      const px = x + Math.cos(a) * r * rx, py = cy + Math.sin(a) * r * ry - heap * (1 - r * r);
       const col = i % 3 === 0 ? C.kib2 : i % 5 === 0 ? C.kib3 : C.kib;
       put(layer, px, py, col); put(layer, px + 1, py, col);
     }
   }
+}
+
+function drawScoop(buf: Uint32Array, w: World) {
+  const s = w.scoop, d = w.dish;
+  if (s.show <= 0) return;
+  const lift = s.left > 0 ? 0 : (0.4 - Math.min(0.4, s.show)) * 30;
+  const x = Math.round(d.x + 8), y = Math.round(d.y - d.z - SCOOP_Z - 2 - lift);
+  stamp(buf, (l) => {
+    poly(l, [x - 6, y - 3, x + 3, y - 6, x + 5, y + 1, x - 4, y + 3], C.scoop);
+    poly(l, [x - 6, y - 3, x - 4, y + 3, x - 6, y + 2], C.scoopIn);
+    line(l, x + 4, y - 3, x + 13, y - 9, C.scoop, 1); line(l, x + 4, y - 2, x + 13, y - 8, C.scoopShade, 1);
+    line(l, x - 2, y - 4, x + 3, y - 5, mix(C.scoop, WHITE, 0.5), 1);
+  }, C.bowlLine);
 }
 
 function drawYarn(layer: Uint32Array, w: World) {
@@ -1292,7 +1342,6 @@ function drawTrail(buf: Uint32Array, w: World) {
   const y = w.yarn, tr = y.trail;
   let px = y.x, py = y.y - 1;
   if (y.z > 1 && !y.inBox) {
-    // A lifted ball trails its thread straight down to where it lies on the ground.
     const top = y.y - y.z, sway = clamp(-y.vx * 0.02, -4, 4);
     let qx = y.x, qy = top;
     for (let k = 1; k <= 6; k++) {
@@ -1343,28 +1392,26 @@ function drawCat(layer: Uint32Array, w: World) {
   const outer = dark ? hex('#17141a') : mix(cc.base, INK, 0.7);
   const inner = dark ? hex('#201c23') : mix(cc.base, INK, 0.34);
   let id = 0;
-  const paint = (part: Part, cy: number, ry: number, far: boolean) => {
-    const me = ++id;
-    return (x: number, y: number) => {
-      IDS[y * W + x] = me;
-      const lx = (x + 0.5 - ax) * d, ly = y + 0.5 - ay;
-      let col = fur(cc, part, lx, ly, P, w.seed);
-      const k = (ly - cy) / ry;
-      if (k > 0.5) col = mix(col, INK, 0.14);
-      else if (k < -0.65) col = mix(col, WHITE, 0.1);
-      return far ? mix(col, INK, 0.3) : col;
-    };
+  const paintAs = (me: number, part: Part, cy: number, ry: number, far: boolean) => (x: number, y: number) => {
+    IDS[y * W + x] = me;
+    const lx = (x + 0.5 - ax) * d, ly = y + 0.5 - ay;
+    let col = fur(cc, part, lx, ly, P, w.seed);
+    const k = (ly - cy) / ry;
+    if (k > (part === 'body' ? 0.85 : 0.5)) col = mix(col, INK, 0.12);
+    else if (k < -0.65) col = mix(col, WHITE, 0.1);
+    return far ? mix(col, INK, 0.3) : col;
   };
+  const paint = (part: Part, cy: number, ry: number, far: boolean) => paintAs(++id, part, cy, ry, far);
   const blob = (b: Blob, p: Paint) => ellipse(layer, X(b.x), Y(b.y), b.rx, b.ry, p);
 
   const asleep = c.mode === 'sleep';
-  const breath = 1 + Math.sin(t * (asleep ? 1.7 : 2.6)) * (asleep ? 0.05 : 0.02);
+  const breath = asleep ? 1 + Math.sin(t * 1.7) * 0.05 : 1;
   const bob = c.moving ? (1 - Math.cos(2 * c.phase)) * 0.4 : 0;
   const T = torso(P, P.bx + P.wig * Math.sin(t * 24) * 2, P.by - bob, P.bry * breath);
   const f = P.front, hx = P.hx;
   const hy = P.hy - bob * 0.2 + (c.mode === 'eat' ? Math.abs(Math.sin(t * 7)) * 1.5 : 0) + (asleep ? (breath - 1) * 6 : 0);
   const mx = hx + 5.2 * (1 - f);
-  const air = c.z > 1;
+  const air = c.z > 1 && c.mode !== 'spook';
 
   const gait = (off: number): [number, number] => {
     if (!c.moving) return [0, 0];
@@ -1380,35 +1427,43 @@ function drawCat(layer: Uint32Array, w: World) {
     const ang = Math.atan2(fy - jy, fx - jx) + bend * A;
     return [jx + Math.cos(ang) * a, jy + Math.sin(ang) * a];
   };
-  // Front legs fold forward at the wrist, hind legs back at the hock. Each leg is one part, drawn
-  // behind the body so the body's lower edge reads as the belly line rather than a seam.
-  const leg = (j: { x: number; y: number }, vis: number, off: number, far: boolean, front: boolean, paw: number) => {
+  // The near legs share the body's part id so no seam is drawn where they join it.
+  const leg = (j: { x: number; y: number }, vis: number, off: number, far: boolean, front: boolean, paw: number, me: number) => {
     if (vis < 0.06 && paw < 0.06) return;
     const [gx, lift] = gait(off);
-    let fx = j.x + (front ? 1 : -0.5) + (far ? (front ? -2.5 : 2.5) : 0) + gx, fy = -lift - 1.5;
-    if (air) { fx = j.x + (front ? 11 : -11); fy = j.y + 6; }
+    let fx = j.x + (front ? 1.5 : -1) + (far ? (front ? -2.5 : 2.5) : 0) + gx, fy = -lift - 1.2;
+    if (air) { fx = j.x + (front ? 11 : -11); fy = j.y + 7; }
     fx += (P.pawX - fx) * paw; fy += (P.pawY - fy) * paw;
     const k = Math.max(Math.min(1, vis * 2), paw), ex = j.x + (fx - j.x) * k, ey = j.y + (fy - j.y) * k;
-    const pt = paint('leg', ey, 8, far);
-    const [kx, ky] = ik(j.x, j.y, ex, ey, front ? 7.4 : 6.8, front ? 7.2 : 6.4, front ? -1 : 1);
-    capsule(layer, X(j.x), Y(j.y), X(kx), Y(ky), front ? 2.3 : 2.4, pt);
-    capsule(layer, X(kx), Y(ky), X(ex), Y(ey), 1.8, pt);
-    ellipse(layer, X(ex + 1.1), Y(ey + 0.5), 2.6, 1.6, pt);
+    const pt = paintAs(me, 'leg', ey, 9, far);
+    const [kx, ky] = ik(j.x, j.y, ex, ey, front ? 7.8 : 8.8, front ? 7 : 6.6, front ? -1 : 1);
+    if (front) {
+      taper(layer, X(j.x), Y(j.y), X(kx), Y(ky), 3.6, 2.2, pt);
+      taper(layer, X(kx), Y(ky), X(ex), Y(ey), 2.1, 1.6, pt);
+    } else {
+      const mx2 = j.x + (kx - j.x) * 0.45 + 1.2, my2 = j.y + (ky - j.y) * 0.45;
+      taper(layer, X(j.x), Y(j.y), X(mx2), Y(my2), 5.2, 3.6, pt);
+      taper(layer, X(mx2), Y(my2), X(kx), Y(ky), 3.6, 1.8, pt);
+      taper(layer, X(kx), Y(ky), X(ex), Y(ey), 1.8, 1.6, pt);
+    }
+    ellipse(layer, X(ex + 1.2), Y(ey + 0.3), 2.6, 1.5, pt);
   };
   const tail = () => {
-    let a = P.tailA, x = T.tail.x, y = T.tail.y;
-    const amp = asleep ? 0.01 : c.grumpy > 0 || c.mode === 'stalk' || c.mode === 'wiggle' ? 0.11 : 0.035;
-    const freq = asleep ? 0.8 : c.grumpy > 0 || c.mode === 'wiggle' ? 7 : 2;
+    const agitated = c.grumpy > 0 || c.mode === 'stalk' || c.mode === 'wiggle';
+    const amp = asleep || P.bristle > 0.5 ? 0.02 : agitated ? 0.16 : c.moving ? 0.07 : 0.09;
+    const freq = asleep ? 0.7 : agitated ? 6 : c.moving ? 3 : 1.4;
+    const N = 12, seg = 2.6;
+    let a = P.tailA + amp * 0.8 * Math.sin(t * freq * 0.5 + 0.7), x = T.tail.x, y = T.tail.y;
     const pt = paint('tail', 0, 1, false);
-    for (let i = 1; i <= 11; i++) {
-      a += P.tailC + amp * Math.sin(t * freq - i * 0.55);
-      const nx = x - Math.cos(a) * 2.8, ny = Math.min(-2, y - Math.sin(a) * 2.8);
-      capsule(layer, X(x), Y(y), X(nx), Y(ny), 2.5 - i * 0.07, pt);
+    for (let i = 1; i <= N; i++) {
+      const k0 = (i - 1) / N, k = i / N;
+      a += P.tailC * (0.3 + 1.2 * k) + amp * (0.35 + k) * Math.sin(t * freq - i * 0.45);
+      const nx = x - Math.cos(a) * seg, ny = Math.min(-2, y - Math.sin(a) * seg);
+      const puff = 1 + P.bristle * 0.9;
+      taper(layer, X(x), Y(y), X(nx), Y(ny), (2.7 - 1.3 * k0) * puff, (2.7 - 1.3 * k) * puff, pt);
       x = nx; y = ny;
     }
   };
-  // Ears: in profile the near ear stands at the back of the skull and the far one peeks past it;
-  // facing you they spread symmetrically. e folds them flat.
   const earPts = (side: -1 | 1) => {
     const e = P.ear, lerp = (a: number, b: number) => a + (b - a) * f;
     const prof = side < 0 ? [-4.2, -3.6, 1.2, -5.4, -2.6, -12] : [0.6, -5.4, 4.6, -3.4, 3.4, -10.6];
@@ -1422,23 +1477,36 @@ function drawCat(layer: Uint32Array, w: World) {
     poly(layer, [X(a1), Y(a2), X(b1), Y(b2), X(t1), Y(t2)], paint('ear', hy - 9, 5, side > 0 && f < 0.5));
   };
 
-  leg(T.hip, P.legB, 0.5, true, false, 0);
-  leg(T.shoulder, P.legF, 0.75, true, true, 0);
+  leg(T.hip, P.legB, 0.5, true, false, 0, ++id);
+  leg(T.shoulder, P.legF, 0.75, true, true, 0, ++id);
   if (P.tf < 0.5) tail();
   ear(1); ear(-1);
-  leg(T.hip, P.legB, 0, false, false, 0);
+  const bodyId = ++id;
+  leg(T.hip, P.legB, 0, false, false, 0, bodyId);
   const pawUp = P.paw > 0.3;
-  if (!pawUp) leg(T.shoulder, P.legF, 0.25, false, true, P.paw);
-  const body = paint('body', T.waist.y, P.bry, false);
+  if (!pawUp) leg(T.shoulder, P.legF, 0.25, false, true, P.paw, bodyId);
+  const body = paintAs(bodyId, 'body', T.waist.y, P.bry, false);
   blob(T.rump, body); blob(T.waist, body); blob(T.chest, body);
-  if (P.legB > 0.3 && P.haunch < 0.5) ellipse(layer, X(T.hip.x + 1), Y(T.hip.y - 1.5), 4.6, 5.4 * Math.min(1, P.legB), body);
+  if (P.bristle > 0.05) {
+    const blobs = [T.rump, T.waist, T.chest];
+    const top = (lx: number) => blobs.reduce((m, b) => {
+      const u = (lx - b.x) / b.rx;
+      return Math.abs(u) < 1 ? Math.min(m, b.y - b.ry * Math.sqrt(1 - u * u)) : m;
+    }, Infinity);
+    for (let lx = T.rump.x - T.rump.rx * 0.55, i = 0; lx < T.chest.x + T.chest.rx * 0.25; lx += 2.4, i++) {
+      const ty = top(lx);
+      if (ty === Infinity) continue;
+      const h = P.bristle * (2.4 + 1.8 * hash(i, 9, 0));
+      poly(layer, [X(lx - 1.5), Y(ty + 1.6), X(lx + 1.5), Y(ty + 1.6), X(lx - 0.9), Y(ty - h)], body);
+    }
+  }
   if (P.haunch > 0.05) {
     ellipse(layer, X(T.rump.x - 0.5), Y(T.rump.y + 0.5), 8.5 * P.haunch, 7.5 * P.haunch, paint('haunch', T.rump.y, 8, false));
     ellipse(layer, X(T.rump.x + 7), Y(-2), 6 * P.haunch, 2 * P.haunch, paint('leg', -2, 3, false));
   }
   const neckId = id + 1;
   capsule(layer, X(T.neck.x), Y(T.neck.y), X(hx - 2.5 + f), Y(hy + 3.2), 4.6, paint('body', T.waist.y, P.bry, false));
-  if (pawUp) leg(T.shoulder, P.legF, 0.25, false, true, P.paw);
+  if (pawUp) leg(T.shoulder, P.legF, 0.25, false, true, P.paw, ++id);
   if (P.legF < 0.2 && P.haunch < 0.5 && !asleep) ellipse(layer, X(T.chest.x + T.chest.rx * 0.55), Y(-1.8), 3.2, 1.7, paint('leg', -1.8, 2, false));
   const head = paint('head', hy + 1, 7, false);
   ellipse(layer, X(hx), Y(hy), 6.4, 5.8, head);
@@ -1516,47 +1584,57 @@ export function render(w: World, buf: Uint32Array, layer: Uint32Array, hitMask: 
   drawTrail(buf, w);
 
   drawCat(layer, w);
-  const lit = beamAt(w.hour, c.x, c.y - 2), beam = beamOf(w.hour);
   const fr = boxFrame(b);
-  const catPixels = (dst: Uint32Array, clip: boolean) => {
+  const catPixels = (dst: Uint32Array, inside: 'tipped' | 'upright' | null) => {
     for (let i = 0; i < W * H; i++) {
       let v = layer[i];
-      if (v && clip) {
+      if (v && inside !== null) {
         const x = i % W, y = (i - x) / W;
-        if (x < fr.x0 + 3 || x > fr.x1 - 3 || y < fr.f - TIPPED_TALL + 3 || y > fr.f - 3) v = 0;
+        const out = inside === 'tipped'
+          ? x < fr.x0 + 3 || x > fr.x1 - 3 || y < fr.f - TIPPED_TALL + 3 || y > fr.f - 3
+          : y > fr.f - BOX_TALL + fr.dy && (x < fr.x0 + 2 || x > fr.x1 + fr.dx - 2);
+        if (out) v = 0;
       }
       hitMask[i] = v ? 1 : 0;
-      if (v) dst[i] = lit && beam ? mix(v, beam.col, lit * 0.5) : v;
+      if (v) dst[i] = v;
     }
   };
-  const yarnIn = w.yarn.inBox, catIn = c.inBox && c.mode !== 'hop';
-  const items: [number, () => void][] = [[dh.y, () => {
+  // Depth against the box: what stands behind its back wall goes under the whole box, what is inside goes
+  // between its back and front, and anything in front of it or beside it goes over it.
+  const fp = footprint(b);
+  const depth = (y: number, inside: boolean) =>
+    inside ? clamp(y, fp.back + 0.01, fp.front - 0.01) : y <= fp.back || y >= fp.front ? y : fp.front + 0.01 + (y - fp.back) * 1e-3;
+  // A hop into or out of the box crosses the front wall high enough to clear it, so the cat is inside once past it.
+  const boxHop = c.mode === 'hop' && c.jump !== null && (c.jump.into || c.inBox);
+  const catIn = boxHop ? c.y < fp.front : c.inBox;
+  const yarnIn = w.yarn.inBox;
+  const items: [number, () => void][] = [[depth(dh.y, false), () => {
     if (Math.abs(dh.angle) < 0.02) { stamp(buf, (l) => drawBowl(l, w), C.bowlLine); return; }
     GROUP.fill(0);
     stamp(GROUP, (l) => drawBowl(l, w), C.bowlLine);
     rotateInto(buf, GROUP, dh.x, dh.y - dh.z - 5, dh.angle);
   }]];
   if (Math.abs(b.angle) > 0.02) {
-    // A swinging or tumbling box is drawn as one piece, with whatever is inside, then rotated.
-    items.push([b.y, () => {
+    items.push([fp.front, () => {
       GROUP.fill(0);
       stamp(GROUP, (l) => boxBack(l, b), C.boxLine);
       if (yarnIn) stamp(GROUP, (l) => drawYarn(l, w), C.yarnLine);
-      if (catIn) catPixels(GROUP, b.tipped);
+      if (catIn) catPixels(GROUP, b.tipped ? 'tipped' : 'upright');
       stamp(GROUP, (l) => boxFront(l, b), C.boxLine);
       rotateInto(buf, GROUP, b.x + BOX_DX / 2, fr.f - (b.tipped ? TIPPED_TALL : BOX_TALL) / 2, b.angle);
     }]);
   } else {
-    items.push([b.y - TIPPED_TALL, () => stamp(buf, (l) => boxBack(l, b), C.boxLine)]);
-    items.push([b.y, () => stamp(buf, (l) => boxFront(l, b), C.boxLine)]);
-    if (yarnIn) items.push([b.y - 6, () => stamp(buf, (l) => drawYarn(l, w), C.yarnLine)]);
-    if (catIn) items.push([b.y - 2, () => catPixels(buf, b.tipped)]);
+    items.push([fp.back, () => stamp(buf, (l) => boxBack(l, b), C.boxLine)]);
+    items.push([fp.front, () => stamp(buf, (l) => boxFront(l, b), C.boxLine)]);
+    if (yarnIn) items.push([depth(w.yarn.y, true), () => stamp(buf, (l) => drawYarn(l, w), C.yarnLine)]);
+    if (catIn) items.push([depth(c.y, true), () => catPixels(buf, b.tipped ? 'tipped' : 'upright')]);
   }
-  if (!yarnIn) items.push([w.yarn.y, () => stamp(buf, (l) => drawYarn(l, w), C.yarnLine)]);
-  if (!catIn) items.push([c.y, () => catPixels(buf, false)]);
+  if (!yarnIn) items.push([depth(w.yarn.y, false), () => stamp(buf, (l) => drawYarn(l, w), C.yarnLine)]);
+  if (!catIn) items.push([depth(c.y, false), () => catPixels(buf, null)]);
   items.sort((a, z) => a[0] - z[0]).forEach(([, f]) => f());
 
   for (const k of w.kibble) if (k.z > 0) drawKibble(buf, k);
+  drawScoop(buf, w);
   for (const q of w.parts) sprite(buf, q.kind, q.x, q.y, Math.min(1, q.life / q.max * 2));
 }
 
@@ -1565,7 +1643,6 @@ export function localHour() {
   return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
 }
 
-/** Render one still frame without a page, for the lab poster. */
 export function still(coatKey: CoatKey, hour: number, setup: (w: World) => void) {
   const world = create({ ...adopt(0, coatKey), seed: 7, full: 0.9, rest: 0.4, love: 0.9, bowl: 0.7 }, 0);
   world.hour = hour;
@@ -1581,42 +1658,59 @@ export function still(coatKey: CoatKey, hour: number, setup: (w: World) => void)
 }
 export { POSES, beamSpot };
 
-/** The audio graph, built on the first user gesture (browsers refuse audio before one). */
-interface Rig { ctx: AudioContext; master: GainNode; purr: GainNode; noise: AudioBuffer }
+const CLIPS = ['meow', 'mew', 'laowu', 'beg', 'trill', 'hiss', 'spook', 'clatter', 'purr'] as const;
+type Clip = (typeof CLIPS)[number];
+const CLIP_VOLUME: Record<Exclude<Clip, 'purr'>, number> = { meow: 0.8, mew: 0.7, laowu: 0.9, beg: 0.65, trill: 0.8, hiss: 0.6, spook: 0.7, clatter: 0.6 };
+
+/** The audio graph, built on the first user gesture (browsers refuse audio before one). Cat voices are Sonilo recordings. */
+interface Rig { ctx: AudioContext; master: GainNode; purr: GainNode; noise: AudioBuffer; clips: Record<Clip, AudioBuffer | null> }
 
 class Sfx {
   private rig: Rig | null = null;
 
+  constructor(private readonly root: string) {}
+
   unlock() {
-    if (!this.rig) this.rig = Sfx.build();
+    if (!this.rig) this.rig = Sfx.build(this.root);
     if (this.rig.ctx.state === 'suspended') void this.rig.ctx.resume();
   }
 
-  private static build(): Rig {
+  private static build(root: string): Rig {
     const ctx = new AudioContext();
     const master = ctx.createGain();
     master.gain.value = 0.55;
     master.connect(ctx.destination);
     const len = ctx.sampleRate * 2, noise = ctx.createBuffer(1, len, ctx.sampleRate), data = noise.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < len; i++) { last = (last + 0.04 * (Math.random() * 2 - 1)) / 1.04; data[i] = last * 3.2; }
-    // Purr: brown noise through a low-pass, chopped ~25 times a second.
-    const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220;
-    const am = ctx.createGain(); am.gain.value = 0.55;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 25;
-    const depth = ctx.createGain(); depth.gain.value = 0.45;
-    lfo.connect(depth).connect(am.gain);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     const purr = ctx.createGain(); purr.gain.value = 0;
-    src.connect(lp).connect(am).connect(purr).connect(master);
-    src.start(); lfo.start();
-    return { ctx, master, purr, noise };
+    purr.connect(master);
+    const clips: Record<Clip, AudioBuffer | null> = { meow: null, mew: null, laowu: null, beg: null, trill: null, hiss: null, spook: null, clatter: null, purr: null };
+    for (const name of CLIPS) {
+      fetch(`${root}${name}.m4a`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${r.status} for ${name}`))))
+        .then((bytes) => ctx.decodeAudioData(bytes))
+        .then((buf) => {
+          clips[name] = buf;
+          if (name === 'purr') { const loop = ctx.createBufferSource(); loop.buffer = buf; loop.loop = true; loop.connect(purr); loop.start(); }
+        })
+        .catch((e: Error) => console.warn(`sunbeam: could not load the ${name} sound: ${e.message}`));
+    }
+    return { ctx, master, purr, noise, clips };
   }
 
-  purr(level: number, t: number) {
+  purr(level: number) {
     if (!this.rig) return;
-    const breath = 0.7 + 0.3 * Math.sin(t * 2.4);
-    this.rig.purr.gain.setTargetAtTime(level * breath * 0.9, this.rig.ctx.currentTime, 0.08);
+    this.rig.purr.gain.setTargetAtTime(level * 1.1, this.rig.ctx.currentTime, 0.15);
+  }
+
+  private clip(rig: Rig, name: Exclude<Clip, 'purr'>) {
+    const buf = rig.clips[name];
+    if (buf === null) return;
+    const { ctx } = rig, s = ctx.createBufferSource(), g = ctx.createGain();
+    s.buffer = buf; s.playbackRate.value = rand(0.96, 1.04);
+    g.gain.value = CLIP_VOLUME[name];
+    s.connect(g).connect(rig.master);
+    s.start();
   }
 
   private burst(rig: Rig, at: number, dur: number, type: BiquadFilterType, freq: number, vol: number) {
@@ -1633,24 +1727,11 @@ class Sfx {
     if (!rig || rig.ctx.state !== 'running') return;
     const { ctx } = rig;
     const t = ctx.currentTime;
-    if (sound === 'meow' || sound === 'mew') {
-      const k = sound === 'mew' ? 1.25 : 1, len = sound === 'mew' ? 0.38 : 0.62, p = k * rand(0.92, 1.08);
-      const o = ctx.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(480 * p, t); o.frequency.linearRampToValueAtTime(780 * p, t + len * 0.3); o.frequency.linearRampToValueAtTime(520 * p, t + len);
-      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.5;
-      f.frequency.setValueAtTime(800, t); f.frequency.linearRampToValueAtTime(1700, t + len * 0.35); f.frequency.linearRampToValueAtTime(700, t + len);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(sound === 'mew' ? 0.18 : 0.3, t + 0.07);
-      g.gain.linearRampToValueAtTime(0.2, t + len * 0.6); g.gain.linearRampToValueAtTime(0, t + len);
-      o.connect(f).connect(g).connect(rig.master);
-      o.start(t); o.stop(t + len + 0.05);
-    } else if (sound === 'crunch') {
+    if (sound === 'crunch') {
       this.burst(rig, t, 0.05, 'bandpass', 1900, 0.12);
       this.burst(rig, t + 0.08, 0.04, 'bandpass', 2400, 0.08);
     } else if (sound === 'pour') {
       for (let i = 0; i < 14; i++) this.burst(rig, t + Math.random() * 0.5, 0.025, 'bandpass', rand(2600, 4200), 0.1);
-    } else if (sound === 'hiss') {
-      this.burst(rig, t, 0.5, 'highpass', 3200, 0.16);
     } else if (sound === 'clink') {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'triangle'; o.frequency.setValueAtTime(rand(1500, 1900), t);
@@ -1660,13 +1741,12 @@ class Sfx {
     } else if (sound === 'thud') {
       this.burst(rig, t, 0.16, 'lowpass', 260, 0.5);
       this.burst(rig, t + 0.01, 0.06, 'bandpass', 900, 0.12);
-    }
+    } else this.clip(rig, sound);
   }
 }
 
 const KEY = 'lab:sunbeam';
 
-/** `?hour=20` pins the clock for testing; anything unparseable is ignored. */
 function hourParam(raw: string | null): number | null {
   if (raw === null) return null;
   const h = Number(raw);
@@ -1690,7 +1770,7 @@ function loadSave(): Save | null {
   return { v: 1, coat, seed: nums[0], t: nums[1], full: nums[2], rest: nums[3], love: nums[4], bowl: nums[5] };
 }
 
-export function mountSunbeam(cv: HTMLCanvasElement, stage: HTMLElement) {
+export function mountSunbeam(cv: HTMLCanvasElement, stage: HTMLElement, sfxRoot: string) {
   const params = new URLSearchParams(location.search);
   const forcedHour = hourParam(params.get('hour'));
   const coatParam = params.get('coat');
@@ -1705,7 +1785,7 @@ export function mountSunbeam(cv: HTMLCanvasElement, stage: HTMLElement) {
   let save = saved === null ? adopt(now, randomCoat()) : saved;
   if (forcedCoat !== null) save = { ...save, coat: forcedCoat };
   const w = create(save, now);
-  const sfx = new Sfx();
+  const sfx = new Sfx(sfxRoot);
 
   const persist = () => {
     try {
@@ -1817,7 +1897,7 @@ export function mountSunbeam(cv: HTMLCanvasElement, stage: HTMLElement) {
     step(w, dt);
     for (const s of w.sounds) sfx.play(s);
     w.sounds.length = 0;
-    sfx.purr(w.cat.purr, w.time);
+    sfx.purr(w.cat.purr);
     render(w, buf, layer, hitMask);
     ctx.putImageData(image, 0, 0);
     if ((saveT += dt) > 4) { saveT = 0; persist(); }
