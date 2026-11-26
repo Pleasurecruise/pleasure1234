@@ -16,3 +16,7 @@ pnpm-debug.log*
 
 .env
 .env.production
+
+tmp/
+
+public/msime/

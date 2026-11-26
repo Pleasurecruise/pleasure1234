@@ -1,4 +1,3 @@
-// Highland Wedding: a phone photo of a glen, turned into live pixel art.
 // The photo is downscaled, then every frame is re-quantised to a palette with ordered
 // dithering, so the effects drawn on top (mist, wind over the grass, ripples, a veil)
 // come out in the same pixel language as the picture. Regions are found by colour:
@@ -150,7 +149,6 @@ export function createGlen(photo: Uint8ClampedArray, W: number, H: number): Glen
   // drizzle: z is depth (0 far, 1 near). Near drops fall faster, streak longer and land lower.
   interface Drop { x: number; y: number; z: number; land: number; vx: number }
   interface Splash { x: number; y: number; age: number }
-  // a drop landing on the loch: dot, then a dash, then a flat ring that fades
   interface Ring { x: number; y: number; age: number; life: number; size: number }
   const rings: Ring[] = [];
   // where a gust has shoved the mist sideways; it eases back on its own
@@ -249,7 +247,6 @@ export function createGlen(photo: Uint8ClampedArray, W: number, H: number): Glen
         if (water[i]) continue;
         let r = R[i], g = G[i], b = B[i];
         if (meadow[i]) {
-          // wind running over grass: lighter bands of bent blades travel downwind
           const w = wind[x], aw = Math.tanh(Math.abs(w) * 0.8) * 1.2;
           const n = vnoise((x - grassX) / (9 * gs), y / (2.4 * gs), 3) * 0.7 + vnoise((x - grassX * 1.3) / (4 * gs), y / (1.6 * gs), 4) * 0.3;
           const sx = clamp(Math.round(x + clamp((n - 0.5) * Math.tanh(w) * 3 * gs, -2, 2)), 0, W - 1), j = row + sx;
@@ -265,7 +262,6 @@ export function createGlen(photo: Uint8ClampedArray, W: number, H: number): Glen
           r += c * 34 * s; g += c * 34 * s; b += c * 32 * s;
         }
         if (fr > 0) {
-          // long, low banks of mist rather than blobs
           const fx = x + fogX + fogShift[x];
           const f = vnoise(fx / 96, y / 16, 6) * 0.65 + vnoise((fx + fogX * 0.6) / 40, y / 7, 7) * 0.35;
           const a = clamp((f - 0.5) * 1.8, 0, 1) * fr * 0.42;
@@ -299,7 +295,6 @@ export function createGlen(photo: Uint8ClampedArray, W: number, H: number): Glen
         if (!water[sy * W + sx]) { sx = x; sy = y; }
         const j = sy * W + sx;
         let r = R[j], g = G[j], b = B[j];
-        // streaks of wind on the surface, and light/dark faces of the ripples
         const streak = vnoise((x - grassX * 0.8) / 14, y * 1.3, 8);
         const lift = (streak - 0.55) * aw * 40;
         r += lift; g += lift; b += lift;
@@ -408,7 +403,6 @@ export function createGlen(photo: Uint8ClampedArray, W: number, H: number): Glen
       }
     }
 
-    // petals from the wedding and chaff off the meadow, carried by the local wind
     const strong = Math.max(0, Math.abs(meanWind) - 0.25);
     if (veil) {
       petalAcc += dt * (0.9 + strong * 9);
@@ -439,7 +433,6 @@ export function createGlen(photo: Uint8ClampedArray, W: number, H: number): Glen
     }
     if (bits.length > 400) bits.splice(0, bits.length - 400);
 
-    // the veil, streaming from the bride's head
     if (veil) {
       const w = wind[veil.x], s = Math.min(1, Math.abs(w) * 1.2), d = w >= 0 ? 1 : -1;
       const L = 2 + Math.round(4 * s);

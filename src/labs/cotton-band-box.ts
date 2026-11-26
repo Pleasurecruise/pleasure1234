@@ -146,7 +146,6 @@ export function mountBox(
       <path d="${prong(-1)} ${prong(1)}" class="prong" stroke-width="${2.4 * k}"/>
       <circle cx="${claw.x}" cy="${hub + 2 * k}" r="${3.6 * k}" class="hub"/>`;
     if (carry) {
-      // the toy hangs from the closed claw by its head and swings a little
       carry.el.style.transformOrigin = `50% 4%`;
       place(carry, claw.x, hub + 4 * k - th * 0.04, claw.swing);
     }
@@ -221,7 +220,6 @@ export function mountBox(
     const toy = need(toys.get(m.id), `toy ${m.id}`);
     await travel(toy.x, 60);
     const from = claw.len;
-    // lower until the closed prongs sit around the toy's head
     const reach = toy.y - railY() - 5 * ck() - 4 * ck();
     await tween((t) => { claw.len = from + (reach - from) * ease(t); }, 520);
     await tween((t) => { claw.open = 0.6 * (1 - t); }, 200);

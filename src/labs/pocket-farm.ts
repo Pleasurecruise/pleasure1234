@@ -67,7 +67,7 @@ function textures() {
   const dirt = makeTex(N, N, dirtPx);
   const fringe = Array.from({ length: N }, () => 2 + Math.floor(r() * 3) + (r() < 0.2 ? 2 : 0));
   const grassSide = makeTex(N, N, (x, y) => (y < fringe[x] ? GRASS[Math.min(4, Math.floor(r() * 3) + (y === fringe[x] - 1 ? 1 : 0))] : dirtPx()));
-  const farmTop = makeTex(N, N, (x, y) => (y % 4 === 3 ? (r() < 0.7 ? '#3a2416' : from(FARM)) : y % 4 === 0 && r() < 0.4 ? '#6a452b' : from(FARM)));
+  const farmTop = makeTex(N, N, (_, y) => (y % 4 === 3 ? (r() < 0.7 ? '#3a2416' : from(FARM)) : y % 4 === 0 && r() < 0.4 ? '#6a452b' : from(FARM)));
   const ripple = (seed: number) => {
     const p1 = r() * TAU, p2 = r() * TAU;
     return makeTex(N, 80, (x, y) => {

@@ -1,0 +1,248 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="Typetone · Lab" description="Typetone: a chat box whose equalizer is your keyboard.">
+  <main class="lab">
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+
+    <div class="chat">
+      <div class="log" id="log" role="log" aria-label="Sent messages"></div>
+
+      <div class="dock">
+        <canvas class="meter" id="wave" aria-hidden="true"></canvas>
+        <canvas class="clawd" id="clawd" aria-hidden="true" data-sheets={`${base}lab/typetone/clawd/`}></canvas>
+
+        <form class="composer" id="composer" autocomplete="off">
+          <label class="sr-only" for="prompt">Message</label>
+          <textarea
+            id="prompt"
+            rows="1"
+            placeholder="Type anything…"
+            spellcheck="false"
+            aria-describedby="keys"
+            enterkeyhint="send"
+          ></textarea>
+          <button type="submit" class="send" id="send" aria-label="Send" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <p class="lab-hint" id="keys">Enter sends. Click a sent message to replay it.</p>
+  </main>
+</Layout>
+
+<style>
+  .lab {
+    width: min(calc(100% - 2rem), 40rem);
+  }
+
+  .chat {
+    width: 100%;
+    display: grid;
+    gap: 0.75rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .log {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-height: 40svh;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .log:empty {
+    display: none;
+  }
+
+  .log:not(:empty) {
+    padding-bottom: 1.25rem;
+  }
+
+  .log :global(.bubble) {
+    max-width: 80%;
+    padding: 0.55rem 0.9rem;
+    border: 0;
+    border-radius: 1.1rem 1.1rem 0.3rem 1.1rem;
+    background: #efedea;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition: background 200ms ease, box-shadow 200ms ease;
+  }
+
+  .log :global(.bubble:hover) {
+    background: #e7e4e0;
+  }
+
+  .log :global(.bubble.playing) {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--ink) 30%, transparent);
+  }
+
+  .dock {
+    position: relative;
+    display: grid;
+  }
+
+  .clawd {
+    position: absolute;
+    left: 1.25rem;
+    right: 1.25rem;
+    top: calc(3rem - 80px);
+    width: calc(100% - 2.5rem);
+    height: 80px;
+    pointer-events: none;
+    image-rendering: pixelated;
+  }
+
+  .meter {
+    display: block;
+    width: calc(100% - 2.5rem);
+    height: 3rem;
+    margin: 0 auto 0.4rem;
+    pointer-events: none;
+  }
+
+  .composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    padding: 0.6rem 0.6rem 0.6rem 1.1rem;
+    background: #fff;
+    border: 1px solid #e6e3df;
+    border-radius: 1.5rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 24px rgb(0 0 0 / 0.05);
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .composer:focus-within {
+    border-color: color-mix(in srgb, var(--ink) 35%, transparent);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--ink) 8%, transparent),
+      0 6px 24px rgb(0 0 0 / 0.05);
+  }
+
+  .composer.sent {
+    animation: thump 320ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+
+  @keyframes thump {
+    35% { transform: translateY(2px) scale(0.985, 0.97); }
+  }
+
+  textarea {
+    flex: 1;
+    align-self: center;
+    min-width: 0;
+    min-height: 1.5rem;
+    max-height: 9rem;
+    field-sizing: content;
+    resize: none;
+    border: 0;
+    outline: 0;
+    padding: 0.2rem 0;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  textarea::placeholder {
+    color: #8b8580;
+  }
+
+  .send {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  .send:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+
+  .send:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+
+  .send svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .send:focus-visible,
+  .log :global(.bubble:focus-visible) {
+    outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (forced-colors: active) {
+    .meter,
+    .clawd {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .composer.sent {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  import { byId, need } from '../../lib/dom';
+  import { mountTypetone } from '../../labs/typetone';
+
+  const input = byId('prompt', HTMLTextAreaElement);
+  const clawd = byId('clawd', HTMLCanvasElement);
+
+  mountTypetone({
+    canvas: byId('wave', HTMLCanvasElement),
+    form: byId('composer', HTMLFormElement),
+    input,
+    log: byId('log', HTMLElement),
+    send: byId('send', HTMLButtonElement),
+    stage: clawd,
+    sheets: need(clawd.dataset.sheets, 'Clawd sheet path'),
+  });
+
+  input.focus({ preventScroll: true });
+</script>

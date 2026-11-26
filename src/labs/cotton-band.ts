@@ -1,4 +1,3 @@
-// Cotton Band: BanG Dream! plushies on a white desk.
 // Rigid bodies (planck.js) live in the plane of the shelf line; each plush image is drawn
 // on a 7×9 mesh whose nodes chase the rigid pose on damped springs, so it stays soft.
 import { BoxShape, EdgeShape, MouseJoint, PolygonShape, Vec2, World, type Body, type Fixture } from 'planck';
@@ -95,7 +94,7 @@ interface Plush {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const toBody = (lx: number, ly: number) => Vec2((lx - ORIGIN.x) * M, (ly - ORIGIN.y) * M);
+const toBody = (lx: number, ly: number) => new Vec2((lx - ORIGIN.x) * M, (ly - ORIGIN.y) * M);
 
 function createRenderer(canvas: HTMLCanvasElement) {
   const gl = canvas.getContext('webgl2', { premultipliedAlpha: true, antialias: true, alpha: true });
@@ -124,7 +123,6 @@ function createRenderer(canvas: HTMLCanvasElement) {
     out vec4 color;
     float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main() {
-      // plush fuzz: fibres that stick out of the silhouette and a fine pile on the fabric
       vec2 texel = 1.0 / vec2(textureSize(u_tex, 0));
       vec2 cell = floor(v_uv / texel);
       float a = hash(cell) * 6.2832;
@@ -229,7 +227,7 @@ export function mountDesk(
   const gl = createRenderer(canvas);
   if (!gl) canvas.remove();
 
-  const world = new World({ gravity: Vec2(0, GRAVITY) });
+  const world = new World({ gravity: new Vec2(0, GRAVITY) });
   const ground = world.createBody();
   let groundFixture: Fixture | null = null;
   let cabinetFixture: Fixture | null = null;
@@ -289,7 +287,7 @@ export function mountDesk(
     const body = world.createBody({ type: 'dynamic', linearDamping: 0.2, angularDamping: 2.6 });
     body.createFixture({ shape: head, density: 0.5, filterCategoryBits: PLUSH, ...fabric });
     body.createFixture({ shape: torso, density: 5, filterCategoryBits: PLUSH, ...fabric });
-    body.setTransform(Vec2(-100, -100), 0);
+    body.setTransform(new Vec2(-100, -100), 0);
     body.setActive(false);
 
     const plush: Plush = {
@@ -332,7 +330,7 @@ export function mountDesk(
   let order = [...plushes];
 
   const toScreenW = (wx: number, wy: number) => ({ x: wx * ppm, y: groundY + wy * ppm });
-  const toWorld = (x: number, y: number) => Vec2(x / ppm, (y - groundY) / ppm);
+  const toWorld = (x: number, y: number) => new Vec2(x / ppm, (y - groundY) / ppm);
 
   function toScreen(p: Plush, lx: number, ly: number) {
     const w = p.body.getWorldPoint(toBody(lx, ly));
@@ -388,17 +386,17 @@ export function mountDesk(
     deskL = inset / ppm;
     deskR = cabL / ppm;
     if (groundFixture) ground.destroyFixture(groundFixture);
-    groundFixture = ground.createFixture({ shape: new EdgeShape(Vec2(deskL, 0), Vec2((W - inset) / ppm, 0)), ...fabric });
+    groundFixture = ground.createFixture({ shape: new EdgeShape(new Vec2(deskL, 0), new Vec2((W - inset) / ppm, 0)), ...fabric });
     if (cabinetFixture) ground.destroyFixture(cabinetFixture);
     cabinetFixture = ground.createFixture({
-      shape: new BoxShape(cw / ppm / 2, ch / ppm / 2, Vec2((cabL + cw / 2) / ppm, -ch / ppm / 2)),
+      shape: new BoxShape(cw / ppm / 2, ch / ppm / 2, new Vec2((cabL + cw / 2) / ppm, -ch / ppm / 2)),
       ...fabric,
     });
     // keep plushies where they were on screen when the scale changes
     if (hadLayout && oldPpm !== ppm) {
       for (const p of plushes) {
         const at = p.body.getPosition();
-        p.body.setTransform(Vec2((at.x * oldPpm) / ppm, (at.y * oldPpm) / ppm), p.body.getAngle());
+        p.body.setTransform(new Vec2((at.x * oldPpm) / ppm, (at.y * oldPpm) / ppm), p.body.getAngle());
         p.live = false;
       }
     }
@@ -536,7 +534,6 @@ export function mountDesk(
     lastMove = { ...pt, t: performance.now() };
     shakes = [];
     shakeDir = 0;
-    // pinch: the fabric around the fingers bunches up
     const pinch = size * 9;
     poke(p, (lx, ly, n) => {
       const w = Math.exp(-Math.hypot(lx - p.grab.x, ly - p.grab.y) / 26);
@@ -569,7 +566,7 @@ export function mountDesk(
     pat.count++;
     const push = size * 2;
     poke(p, (_, ly) => (ly < HEAD_Y + 10 ? [0, push * (1 - ly / (HEAD_Y + 10))] : null));
-    p.body.applyLinearImpulse(Vec2(0, p.body.getMass() * 0.4), p.body.getWorldPoint(toBody(60, 20)), true);
+    p.body.applyLinearImpulse(new Vec2(0, p.body.getMass() * 0.4), p.body.getWorldPoint(toBody(60, 20)), true);
     if (pat.count % 3 === 0) {
       emit(p, '♡', 0.17);
       onSay(`${p.m.name} ♡`);
@@ -625,7 +622,7 @@ export function mountDesk(
     // a still hand drops the plush instead of flinging it with the joint's last pull
     if (!e || performance.now() - lastMove.t > 90) {
       const v = p.body.getLinearVelocity();
-      p.body.setLinearVelocity(Vec2(v.x * 0.3, v.y * 0.3));
+      p.body.setLinearVelocity(new Vec2(v.x * 0.3, v.y * 0.3));
     }
     if (tap) boop(p);
     sortDepth();
@@ -661,7 +658,7 @@ export function mountDesk(
   function boop(p: Plush) {
     const mass = p.body.getMass();
     const hop = reduceMotion ? 2.5 : 4.2;
-    p.body.applyLinearImpulse(Vec2(0, -mass * hop), p.body.getWorldPoint(toBody(60 + (Math.random() - 0.5) * 16, 110)), true);
+    p.body.applyLinearImpulse(new Vec2(0, -mass * hop), p.body.getWorldPoint(toBody(60 + (Math.random() - 0.5) * 16, 110)), true);
     poke(p, (_, ly) => [0, size * 2.5 * (1 - ly / VB_H)]);
     onSay(`${p.m.name} · ${p.m.jp}`);
     emit(p, NOTES[Math.floor(Math.random() * NOTES.length)], 0.2);
@@ -675,7 +672,7 @@ export function mountDesk(
     } else if (e.key in nudges) {
       e.preventDefault();
       const mass = p.body.getMass();
-      p.body.applyLinearImpulse(Vec2(nudges[e.key] * mass * 1.6, -mass * 2.4), p.body.getWorldPoint(toBody(60, 120)), true);
+      p.body.applyLinearImpulse(new Vec2(nudges[e.key] * mass * 1.6, -mass * 2.4), p.body.getWorldPoint(toBody(60, 120)), true);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       despawn(p);
@@ -687,8 +684,8 @@ export function mountDesk(
     const go = () => {
       if (held === p || !plushes.includes(p)) return;
       p.body.setActive(true);
-      p.body.setTransform(Vec2(x, -height), (Math.random() - 0.5) * 0.06);
-      p.body.setLinearVelocity(Vec2(0, 0));
+      p.body.setTransform(new Vec2(x, -height), (Math.random() - 0.5) * 0.06);
+      p.body.setLinearVelocity(new Vec2(0, 0));
       p.body.setAngularVelocity(0);
       p.body.setAwake(true);
       p.live = false;
@@ -730,14 +727,14 @@ export function mountDesk(
     const from = toWorld(sx, sy);
     // aim loosely so no two throws land the same
     const x = clamp(freeX() + (Math.random() - 0.5) * 1.6, deskL + 0.5, deskR - 0.6);
-    const to = Vec2(x, -(BOTTOM.y - ORIGIN.y) * M);
+    const to = new Vec2(x, -(BOTTOM.y - ORIGIN.y) * M);
     const t = (reduceMotion ? 0.45 : 0.75) + Math.random() * 0.35;
     p.scale = rect.width / size;
     p.ghost = true;
     setGhost(p, true);
     p.body.setActive(true);
     p.body.setTransform(from, angle);
-    p.body.setLinearVelocity(Vec2((to.x - from.x) / t, (to.y - from.y) / t - 0.5 * GRAVITY * t));
+    p.body.setLinearVelocity(new Vec2((to.x - from.x) / t, (to.y - from.y) / t - 0.5 * GRAVITY * t));
     // keep the swing it left the claw with, plus a tumble
     p.body.setAngularVelocity(-Math.abs(spin) * 0.5 - 1.5 - Math.random() * 4);
     p.body.setAwake(true);
@@ -776,7 +773,7 @@ export function mountDesk(
       const v = p.body.getLinearVelocity();
       const vmax = p === held ? 10 : 16;
       const sp = Math.hypot(v.x, v.y);
-      if (sp > vmax) p.body.setLinearVelocity(Vec2((v.x / sp) * vmax, (v.y / sp) * vmax));
+      if (sp > vmax) p.body.setLinearVelocity(new Vec2((v.x / sp) * vmax, (v.y / sp) * vmax));
       const wmax = p === held ? 6 : 10;
       const w = p.body.getAngularVelocity();
       if (Math.abs(w) > wmax) p.body.setAngularVelocity(Math.sign(w) * wmax);
@@ -817,8 +814,8 @@ export function mountDesk(
     const p = spawn(need(MEMBERS.find((m) => m.id === id), `member ${id}`));
     const x = slotX(i, DEFAULT.length) + (Math.random() - 0.5) * 0.1;
     p.body.setActive(true);
-    if (reduceMotion) p.body.setTransform(Vec2(x, -0.62), 0);
-    else p.body.setTransform(Vec2(x, -sky() - 0.2 - i * 0.5), (Math.random() - 0.5) * 0.06);
+    if (reduceMotion) p.body.setTransform(new Vec2(x, -0.62), 0);
+    else p.body.setTransform(new Vec2(x, -sky() - 0.2 - i * 0.5), (Math.random() - 0.5) * 0.06);
   });
   onChange(onDesk());
   new ResizeObserver(() => layout()).observe(stage);

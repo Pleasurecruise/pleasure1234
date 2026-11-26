@@ -4,36 +4,30 @@ import Layout from '../../layouts/Layout.astro';
 const base = import.meta.env.BASE_URL;
 ---
 
-<Layout title="Sunbeam · Lab" description="Sunbeam: a pixel cat that is yours alone. It keeps your local time, naps in a patch of sunlight, and gets hungry while you are away.">
-  <main>
+<Layout title="Sunbeam · Lab" description="Sunbeam: a pen-and-wash cat that keeps your local time.">
+  <main class="lab">
     <a class="back back-pinned" href={`${base}lab`}>← lab</a>
-    <div class="lab-stage" id="stage">
-      <canvas
-        id="room"
-        tabindex="0"
-        aria-label="Your cat, a cardboard box, a yarn ball and a food bowl. Drag over the cat to pet it, tap it to make it meow, tap the bowl to fill it, toss the yarn, lift, swing or throw the box, and lift or throw the dish; tapping the dish pours a scoop of kibble, which spills once it is full. Keys: Enter pets, F fills the bowl, Space throws the yarn, M calls the cat, B taps the box, T throws the box."
-      ></canvas>
-    </div>
+    <canvas
+      id="room"
+      class="focus-ring"
+      tabindex="0"
+      aria-label="Your cat in a sunlit room, with a cardboard box, a yarn ball, a food bowl and a bookcase it can jump onto. Drag over the cat to pet it, press and hold it to pick it up and put it down somewhere else, tap it to make it meow, tap the bowl to fill it, and carry or throw the yarn, the box and the dish anywhere on the floor or onto the bookcase. Keys: Enter pets, F fills the bowl, Space throws the yarn, M calls the cat, B taps the box, T throws the box."
+    ></canvas>
     <a class="sfx-credit" href="https://sonilo.com/royalty-free-sound-effects/cat" target="_blank" rel="noopener">Sound effects by Sonilo</a>
   </main>
 </Layout>
 
 <style>
-  :global(body) {
-    overflow: hidden;
-  }
-
-  .lab-stage {
-    position: fixed;
-    inset: 0;
-    overflow: hidden;
+  .lab {
+    width: min(calc(100% - 2rem), 75rem);
+    padding-block: 1rem;
   }
 
   canvas {
     display: block;
-    margin-inline: auto;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
+    width: min(100%, calc((100svh - 3rem) * 316 / 290));
+    aspect-ratio: 316 / 290;
+    height: auto;
     touch-action: none;
   }
 
@@ -58,5 +52,5 @@ const base = import.meta.env.BASE_URL;
   import { byId } from '../../lib/dom';
   import { mountSunbeam } from '../../labs/sunbeam';
 
-  mountSunbeam(byId('room', HTMLCanvasElement), byId('stage', HTMLElement), `${import.meta.env.BASE_URL}lab/sunbeam/sfx/`);
+  mountSunbeam(byId('room', HTMLCanvasElement), `${import.meta.env.BASE_URL}lab/sunbeam/sfx/`);
 </script>

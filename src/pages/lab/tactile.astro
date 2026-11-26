@@ -1,0 +1,1081 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const base = import.meta.env.BASE_URL;
+
+const dialRidges = Array.from({ length: 80 }, (_, i) => {
+  const a = (i / 80) * Math.PI * 2;
+  return { x1: 60 + Math.sin(a) * 45, y1: 60 - Math.cos(a) * 45, x2: 60 + Math.sin(a) * 49, y2: 60 - Math.cos(a) * 49 };
+});
+
+const dialDigits = Array.from({ length: 10 }, (_, d) => {
+  const deg = -d * 36;
+  const a = (deg * Math.PI) / 180;
+  return { d, deg, x: 60 + Math.sin(a) * 33, y: 60 - Math.cos(a) * 33 };
+});
+
+const dialTicks = Array.from({ length: 10 }, (_, d) => {
+  const a = ((-d * 36 - 18) * Math.PI) / 180;
+  return { x1: 60 + Math.sin(a) * 40, y1: 60 - Math.cos(a) * 40, x2: 60 + Math.sin(a) * 42.5, y2: 60 - Math.cos(a) * 42.5 };
+});
+
+const packing = ['passport', 'charger', 'socks', 'toothbrush', 'umbrella', 'snacks', 'a book', 'headphones', 'sunscreen', 'the cat', 'sunglasses', 'tickets'];
+const rows = [packing.slice(0, 6), packing.slice(6)];
+---
+
+<Layout title="Tactile · Lab" description="Tactile: everyday controls as physical gestures.">
+  <main class="lab tactile">
+    <a class="back back-pinned" href={`${base}lab`}>← lab</a>
+
+    <div class="shelf">
+      <section class="tile tile-cord" id="t-cord" aria-labelledby="t-cord-label">
+        <svg class="cord-scene" viewBox="0 0 200 180">
+          <g class="lamp" aria-hidden="true">
+            <rect class="rose" x="68" y="-4" width="20" height="7" rx="2" />
+            <path class="lamp-wire" d="M78 3V56" />
+            <rect class="lamp-socket" x="73" y="54" width="10" height="7" rx="1.5" />
+            <path class="lamp-shade" d="M48 92Q50 61 78 60Q106 61 108 92Z" />
+            <ellipse class="lamp-rim" cx="78" cy="92" rx="30" ry="3.2" />
+            <g class="lamp-rays">
+              <path d="M78 115v7M61 109l-5 5M95 109l5 5M56 99h-7M100 99h7" />
+            </g>
+            <circle class="lamp-bulb" cx="78" cy="98" r="7.5" />
+            <path class="lamp-filament" d="M75 98q1.5-3 3 0t3 0" />
+            <rect class="rose" x="142" y="-4" width="16" height="6" rx="2" />
+          </g>
+          <path class="cord-line" d="M150 0V112" />
+          <g class="cord-bead" tabindex="0" role="switch" aria-checked="true" aria-label="Lights (light theme)">
+            <circle class="cord-hit" cy="6" r="20" />
+            <path class="cord-pull" d="M0 -1C4.5 2 6 9 3.4 13.5Q0 16.5 -3.4 13.5C-6 9 -4.5 2 0 -1Z" />
+            <path class="cord-shine" d="M-1.8 4Q-3 7.5 -2.2 10.5" />
+          </g>
+        </svg>
+        <p class="tile-label" id="t-cord-label">pull for the lights · <span class="tile-what">theme</span></p>
+      </section>
+
+      <section class="tile tile-password" id="t-password" aria-labelledby="t-password-label">
+        <form class="signin" onsubmit="return false" autocomplete="off">
+          <p class="signin-title">Sign in</p>
+          <label class="signin-label" for="t-user">Username</label>
+          <input class="signin-input" id="t-user" type="text" value="pleasure" readonly />
+          <label class="signin-label signin-gap" for="t-pw">Password</label>
+          <div class="pw-field">
+            <input id="t-pw" type="password" value="tabby-on-the-sill" spellcheck="false" autocomplete="off" maxlength="32" />
+            <canvas class="pw-ink" aria-hidden="true"></canvas>
+            <canvas class="pw-foil" tabindex="0" role="button" aria-label="Foil over the password. Press to scratch it off"></canvas>
+            <canvas class="pw-foil-fresh" aria-hidden="true"></canvas>
+          </div>
+        </form>
+        <p class="tile-label" id="t-password-label">scratch the foil · <span class="tile-what">show password</span></p>
+      </section>
+
+      <section class="tile tile-dial" id="t-dial" aria-labelledby="t-dial-label">
+        <p class="dial-note" aria-hidden="true">code: 0427</p>
+        <div class="dial-stage">
+          <div
+            class="dial"
+            role="slider"
+            tabindex="0"
+            aria-label="Combination dial. Turn to a digit, press to enter it"
+            aria-valuemin="0"
+            aria-valuemax="9"
+            aria-valuenow="0"
+          >
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <defs>
+                <radialGradient id="dial-sheen" cx="38%" cy="30%" r="80%">
+                  <stop offset="0" class="sheen-hi" />
+                  <stop offset="1" class="sheen-lo" />
+                </radialGradient>
+              </defs>
+              <circle class="dial-bezel" cx="60" cy="60" r="56" />
+              <path class="dial-index" d="M60 9.5l-4-6h8z" />
+              <g class="dial-body">
+                <circle class="dial-rim" cx="60" cy="60" r="49" />
+                {dialRidges.map((r) => <line class="dial-ridge" x1={r.x1.toFixed(2)} y1={r.y1.toFixed(2)} x2={r.x2.toFixed(2)} y2={r.y2.toFixed(2)} />)}
+                <circle class="dial-face" cx="60" cy="60" r="44" />
+                {dialTicks.map((t) => <line class="dial-tick" x1={t.x1.toFixed(2)} y1={t.y1.toFixed(2)} x2={t.x2.toFixed(2)} y2={t.y2.toFixed(2)} />)}
+                {dialDigits.map((g) => (
+                  <text class="dial-digit" x={g.x.toFixed(2)} y={g.y.toFixed(2)} transform={`rotate(${g.deg} ${g.x.toFixed(2)} ${g.y.toFixed(2)})`}>{g.d}</text>
+                ))}
+                <circle class="dial-hub" cx="60" cy="60" r="17" />
+                <path class="dial-grip" d="M53 60h14" />
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="pin" aria-hidden="true">
+          <span class="pin-slot"></span><span class="pin-slot"></span><span class="pin-slot"></span><span class="pin-slot"></span>
+        </div>
+        <p class="pin-status" aria-live="polite"></p>
+        <p class="tile-label" id="t-dial-label">twist, then press · <span class="tile-what">PIN</span></p>
+      </section>
+
+      <section class="tile tile-bubbles wide" id="t-bubbles" aria-labelledby="t-bubbles-label">
+        <fieldset class="wrap">
+          <legend class="sr-only">Packing list</legend>
+          <div class="wrap-sheet">
+            {rows.map((row) => (
+              <div class="wrap-row">
+                {row.map((item) => (
+                  <label class="wrap-cell">
+                    <input type="checkbox" class="sr-only" />
+                    <span class="bubble" aria-hidden="true"></span>
+                    <span class="wrap-name">{item}</span>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        </fieldset>
+        <div class="wrap-foot">
+          <span class="wrap-summary" aria-live="polite"></span>
+        </div>
+        <p class="tile-label" id="t-bubbles-label">pop to pack · <span class="tile-what">multi-select</span></p>
+      </section>
+      <section class="tile tile-tape" id="t-tape" aria-labelledby="t-tape-label">
+        <div class="tape">
+          <button class="tape-case" type="button" aria-label="Retract the tape">
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+              <rect class="case-shell" x="2" y="4" width="74" height="74" rx="18" />
+              <circle class="case-hub" cx="38" cy="40" r="18" />
+              <circle class="case-hub-in" cx="38" cy="40" r="11" />
+              <circle class="case-pin" cx="38" cy="40" r="2.5" />
+              <path class="case-grip" d="M11 24v32M15.5 21v38" />
+              <rect class="case-lock" x="28" y="0" width="20" height="7" rx="3.5" />
+              <rect class="case-slot" x="72" y="54" width="7" height="16" rx="1.5" />
+            </svg>
+          </button>
+          <div class="tape-track">
+            <div class="tape-strip"><div class="tape-scale" aria-hidden="true"></div></div>
+            <div
+              class="tape-hook"
+              role="slider"
+              tabindex="0"
+              aria-label="Length"
+              aria-valuemin="0"
+              aria-valuemax="20"
+              aria-valuenow="0"
+              aria-valuetext="0 centimetres"
+            ></div>
+            <span class="tape-read" aria-hidden="true"></span>
+          </div>
+        </div>
+        <p class="tile-label" id="t-tape-label">pull the hook, press the case · <span class="tile-what">slider</span></p>
+      </section>
+    </div>
+
+    <p class="lab-hint">Every gesture also works from the keyboard.</p>
+  </main>
+</Layout>
+
+<style>
+  :global(:root[data-theme='dark']) {
+    --paper: #1c1a19;
+    --ink: #e7e5e4;
+    color-scheme: dark;
+  }
+
+  :global(::view-transition-old(root)),
+  :global(::view-transition-new(root)) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  .tactile {
+    padding-block: 3.5rem 1.5rem;
+    gap: 0.9rem;
+    --line: color-mix(in srgb, var(--ink) 12%, transparent);
+    --soft: color-mix(in srgb, var(--ink) 5%, var(--paper));
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .shelf {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .tile {
+    position: relative;
+    min-height: 17rem;
+    display: grid;
+    place-items: center;
+    padding: 1.25rem 1.25rem 2.25rem;
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    overflow: hidden;
+    transition: border-color 200ms ease;
+  }
+
+  .tile:hover {
+    border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+  }
+
+  .tile.wide {
+    grid-column: span 2;
+  }
+
+  @media (min-width: 56.01rem) and (min-height: 34rem) {
+    .tactile {
+      height: 100svh;
+      min-height: 0;
+    }
+
+    .shelf {
+      flex: 1;
+      min-height: 0;
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+    }
+
+    .tile {
+      min-height: 0;
+    }
+  }
+
+  .tile-label {
+    position: absolute;
+    left: 1rem;
+    bottom: 0.8rem;
+    margin: 0;
+    font-family: var(--hand);
+    font-size: 0.6875rem;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .tile-what {
+    opacity: 0.6;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
+    outline-offset: 3px;
+  }
+
+  .tile-cord {
+    padding: 0 0 2rem;
+    place-items: start center;
+  }
+
+  .cord-scene {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .rose,
+  .lamp-socket {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .lamp-wire,
+  .cord-line {
+    stroke-width: 1.2;
+  }
+
+  .lamp-shade {
+    stroke-width: 1.5;
+    fill: var(--paper);
+  }
+
+  .lamp-rim {
+    stroke-width: 1.2;
+    fill: color-mix(in srgb, var(--ink) 8%, var(--paper));
+  }
+
+  .lamp-bulb {
+    stroke-width: 1.5;
+    fill: currentColor;
+    transition: fill 150ms ease;
+  }
+
+  .lamp-filament {
+    stroke: var(--paper);
+    stroke-width: 1;
+    opacity: 0;
+  }
+
+  .lamp-rays path {
+    stroke-width: 1.5;
+    transform-origin: 78px 98px;
+    transition: transform 400ms var(--spring), opacity 150ms ease;
+  }
+
+  :global(:root[data-theme='dark']) .lamp-bulb {
+    fill: var(--paper);
+  }
+
+  :global(:root[data-theme='dark']) .lamp-filament {
+    stroke: currentColor;
+    opacity: 0.6;
+  }
+
+  :global(:root[data-theme='dark']) .lamp-rays path {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  .cord-bead {
+    cursor: grab;
+    outline: none;
+    touch-action: none;
+  }
+
+  .tile-cord:global(.is-pulling) .cord-bead {
+    cursor: grabbing;
+  }
+
+  .cord-hit {
+    fill: transparent;
+    stroke: none;
+  }
+
+  .cord-pull {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .cord-shine {
+    stroke: var(--paper);
+    stroke-width: 0.9;
+    opacity: 0.55;
+  }
+
+  .cord-bead:focus-visible .cord-hit {
+    stroke: color-mix(in srgb, currentColor 45%, transparent);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 3;
+  }
+
+  .signin {
+    width: min(100%, 15.5rem);
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+  }
+
+  .signin-title {
+    margin: 0 0 0.4rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+
+  .signin-gap {
+    margin-top: 0.45rem;
+  }
+
+  .signin-label {
+    font-family: var(--hand);
+    font-size: 0.7rem;
+    opacity: 0.6;
+  }
+
+  .signin-input,
+  .pw-field {
+    height: 2.4rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.6rem;
+    font: 0.95rem/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+
+  .signin-input {
+    width: 100%;
+    padding: 0 0.75rem;
+    background: var(--soft);
+    color: inherit;
+    outline: none;
+  }
+
+  .pw-field {
+    position: relative;
+    overflow: hidden;
+    transition: border-color 150ms ease;
+  }
+
+  .pw-field:focus-within {
+    border-color: color-mix(in srgb, var(--ink) 45%, transparent);
+  }
+
+  .pw-field input {
+    position: absolute;
+    inset: 0;
+    padding: 0 0.75rem;
+    font: inherit;
+    letter-spacing: 0.04em;
+    line-height: calc(2.4rem - 3px);
+  }
+
+  .pw-field input {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: none;
+    color: transparent;
+    caret-color: transparent;
+  }
+
+  .pw-field:global(.is-typing) input {
+    color: inherit;
+    caret-color: var(--ink);
+  }
+
+  .pw-field input::selection {
+    background: color-mix(in srgb, var(--ink) 18%, transparent);
+  }
+
+  .pw-ink,
+  .pw-foil,
+  .pw-foil-fresh {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .pw-foil {
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  .pw-ink,
+  .pw-foil-fresh {
+    pointer-events: none;
+  }
+
+  .pw-foil-fresh {
+    opacity: 0;
+  }
+
+  .pw-field:global(.is-typing) :is(.pw-ink, .pw-foil, .pw-foil-fresh) {
+    visibility: hidden;
+  }
+
+  .tile-dial {
+    grid-template-rows: 1fr auto auto;
+    gap: 0.45rem;
+  }
+
+  .dial-note {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--ink) 3%, var(--paper));
+    font-family: var(--hand);
+    font-size: 0.7rem;
+    rotate: 4deg;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent);
+  }
+
+  .dial-stage {
+    width: 9.5rem;
+    aspect-ratio: 1;
+    align-self: center;
+  }
+
+  .dial {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    outline-offset: 2px;
+  }
+
+  .tile-dial:global(.is-gripping) .dial {
+    cursor: grabbing;
+  }
+
+  .dial svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .sheen-hi {
+    stop-color: var(--paper);
+  }
+
+  .sheen-lo {
+    stop-color: color-mix(in srgb, var(--ink) 10%, var(--paper));
+  }
+
+  .dial-bezel {
+    fill: color-mix(in srgb, var(--ink) 4%, var(--paper));
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-opacity: 0.35;
+  }
+
+  .dial-index {
+    fill: currentColor;
+  }
+
+  .dial-body {
+    transform-origin: 60px 60px;
+    filter: drop-shadow(0 2px 2.5px color-mix(in srgb, var(--ink) 18%, transparent));
+  }
+
+  .dial:global(.is-pressed) svg {
+    animation: dial-press 260ms ease-out;
+  }
+
+  @keyframes dial-press {
+    35% { transform: scale(0.93); filter: brightness(0.97); }
+  }
+
+  .dial-rim {
+    fill: color-mix(in srgb, var(--ink) 6%, var(--paper));
+    stroke: currentColor;
+    stroke-width: 1.4;
+  }
+
+  .dial-ridge {
+    stroke: currentColor;
+    stroke-width: 0.8;
+    opacity: 0.4;
+  }
+
+  .dial-face {
+    fill: url(#dial-sheen);
+    stroke: currentColor;
+    stroke-width: 0.8;
+    stroke-opacity: 0.4;
+  }
+
+  .dial-tick {
+    stroke: currentColor;
+    stroke-width: 1;
+    opacity: 0.35;
+  }
+
+  .dial-digit {
+    fill: currentColor;
+    font-family: var(--serif);
+    font-size: 11px;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+
+  .dial-hub {
+    fill: url(#dial-sheen);
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-opacity: 0.5;
+  }
+
+  .dial-grip {
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    opacity: 0.55;
+  }
+
+  .tile-dial:global(.is-open) .dial-index {
+    animation: unlock 600ms var(--spring);
+  }
+
+  @keyframes unlock {
+    40% { transform: translateY(-3px); }
+  }
+
+  .pin {
+    display: flex;
+    gap: 0.45rem;
+  }
+
+  .pin-slot {
+    position: relative;
+    width: 1.9rem;
+    height: 2.3rem;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--line);
+    border-radius: 0.45rem;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    transition: border-color 200ms ease, opacity 250ms ease, transform 250ms ease;
+  }
+
+  .pin-slot:global(.is-filled) {
+    border-color: color-mix(in srgb, var(--ink) 40%, transparent);
+  }
+
+  .pin-slot:global(.is-masked) {
+    color: transparent;
+  }
+
+  .pin-slot:global(.is-masked)::after {
+    content: '';
+    position: absolute;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--ink);
+    animation: dot-in 220ms var(--spring);
+  }
+
+  .pin-slot:global(.is-landing) {
+    animation: land 320ms var(--spring);
+  }
+
+  .pin-slot:global(.is-wrong) {
+    animation: wrong 420ms ease;
+  }
+
+  .pin-slot:global(.is-clearing) {
+    opacity: 0.2;
+    transform: translateY(3px);
+  }
+
+  .tile-dial:global(.is-open) .pin-slot {
+    border-color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 6%, var(--paper));
+  }
+
+  @keyframes land {
+    0% { transform: translateY(-6px) scale(0.9); }
+  }
+
+  @keyframes dot-in {
+    0% { transform: scale(0); }
+  }
+
+  @keyframes wrong {
+    20% { transform: translateX(-5px); }
+    45% { transform: translateX(4px); }
+    70% { transform: translateX(-2px); }
+  }
+
+  .pin-status {
+    min-height: 1rem;
+    margin: 0;
+    font-family: var(--hand);
+    font-size: 0.75rem;
+    opacity: 0.7;
+  }
+
+  .tile-bubbles {
+    grid-template-rows: 1fr auto;
+    gap: 0.5rem;
+  }
+
+  .wrap {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-inline-size: 0;
+  }
+
+  .wrap-sheet {
+    --cell: 4.6rem;
+    --gap: 0.5rem;
+    --size: 3.1rem;
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.9rem 1rem;
+    border: 1px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--ink) 2%, var(--paper));
+    touch-action: none;
+  }
+
+  .wrap-cell {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wrap-row {
+    display: flex;
+    gap: var(--gap);
+  }
+
+  .wrap-row:nth-child(odd) {
+    padding-right: calc((var(--cell) + var(--gap)) / 2);
+  }
+
+  .wrap-row:nth-child(even) {
+    padding-left: calc((var(--cell) + var(--gap)) / 2);
+  }
+
+  .wrap-cell {
+    width: var(--cell);
+  }
+
+  .wrap-cell {
+    position: relative;
+  }
+
+  .bubble {
+    position: relative;
+    width: var(--size);
+    height: var(--size);
+    border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at var(--hx, 34%) var(--hy, 30%), var(--paper) 0 11%, transparent 30%),
+      radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--ink) 2%, var(--paper)) 38%, color-mix(in srgb, var(--ink) 12%, var(--paper)) 100%);
+    box-shadow:
+      0 2px 3px color-mix(in srgb, var(--ink) 10%, transparent),
+      inset 0 -3px 5px color-mix(in srgb, var(--ink) 6%, transparent);
+    transition: transform 220ms var(--spring), box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .bubble::before {
+    content: '';
+    position: absolute;
+    inset: 18% 14% 14% 18%;
+    border-radius: 50%;
+    border-right: 1.5px solid color-mix(in srgb, var(--paper) 90%, transparent);
+    border-bottom: 1.5px solid transparent;
+    rotate: 20deg;
+    opacity: 0.8;
+  }
+
+  .wrap-cell:hover input:not(:checked) + .bubble {
+    transform: scale(1.05);
+  }
+
+  .bubble:global(.is-squeezing) {
+    transform: scale(0.8, 0.68) !important;
+    box-shadow: inset 0 -1px 4px color-mix(in srgb, var(--ink) 14%, transparent);
+    transition: transform 240ms cubic-bezier(0.55, 0, 0.9, 0.45), box-shadow 240ms ease;
+  }
+
+  input:checked + .bubble {
+    background: color-mix(in srgb, var(--ink) 7%, var(--paper));
+    border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+    box-shadow: none;
+    transform: scale(0.9) skewX(var(--skew, 0deg));
+  }
+
+  input:checked + .bubble::before,
+  input:checked + .bubble::after {
+    content: '';
+    position: absolute;
+    inset: 48% 20% auto;
+    height: 1px;
+    border: 0;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--ink) 30%, transparent);
+    rotate: var(--crease);
+    opacity: 1;
+  }
+
+  input:checked + .bubble::after {
+    inset-inline: 30%;
+    rotate: calc(var(--crease) + 65deg);
+  }
+
+  input:focus-visible + .bubble {
+    outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
+    outline-offset: 3px;
+  }
+
+  .bubble:global(.is-popping) {
+    animation: popped 380ms var(--spring);
+  }
+
+  .bubble:global(.is-inflating) {
+    animation: reinflate 560ms ease-out;
+  }
+
+  .bubble:global(.is-jostled) {
+    animation: jostle 420ms ease-out;
+  }
+
+  @keyframes popped {
+    0% { transform: scale(0.76, 0.64); }
+    40% { transform: scale(1.12, 0.82) skewX(var(--skew, 0deg)); }
+  }
+
+  @keyframes reinflate {
+    0% { transform: scale(0.86) skewX(var(--skew, 0deg)); }
+    40% { transform: scale(1.1, 0.94); }
+    65% { transform: scale(0.96, 1.05); }
+    85% { transform: scale(1.02, 0.99); }
+  }
+
+  @keyframes jostle {
+    25% { translate: var(--jx) var(--jy); }
+    55% { translate: calc(var(--jx) * -0.4) calc(var(--jy) * -0.4); }
+    100% { translate: 0 0; }
+  }
+
+  .wrap-cell :global(.puff) {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--size) / 2);
+    pointer-events: none;
+  }
+
+  .wrap-cell :global(.puff i) {
+    position: absolute;
+    left: -0.75px;
+    top: 0;
+    width: 1.5px;
+    height: 0.45rem;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--ink) 45%, transparent);
+    transform-origin: 50% 0;
+    animation: air 420ms ease-out forwards;
+  }
+
+  @keyframes air {
+    0% { transform: rotate(var(--a)) translateY(calc(var(--size) * 0.42 * var(--r))) scaleY(0.4); opacity: 0.9; }
+    100% { transform: rotate(var(--a)) translateY(calc(var(--size) * 0.85 * var(--r))) scaleY(1); opacity: 0; }
+  }
+
+  .wrap-name {
+    font-family: var(--hand);
+    font-size: 0.7rem;
+    opacity: 0.5;
+    white-space: nowrap;
+    transition: opacity 200ms ease;
+  }
+
+  input:checked ~ .wrap-name {
+    opacity: 1;
+  }
+
+  .wrap-foot {
+    font-family: var(--hand);
+    font-size: 0.75rem;
+  }
+
+  .wrap-summary {
+    opacity: 0.7;
+  }
+
+  .tape {
+    --case: 4.6rem;
+    --strip: 1.1rem;
+    --strip-bottom: calc(var(--case) * 10 / 80);
+    width: min(100%, 52rem);
+    display: flex;
+    align-items: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .tape-case {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: var(--case);
+    height: var(--case);
+    margin-right: -0.2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 1.2rem;
+    background: none;
+    cursor: pointer;
+    transition: transform 160ms var(--spring);
+  }
+
+  .tape-case:active {
+    transform: scale(0.95);
+  }
+
+  .tape-case:global(.is-knocked) {
+    animation: knock 300ms ease-out;
+  }
+
+  @keyframes knock {
+    30% { transform: translateX(-4px) rotate(-3deg); }
+    60% { transform: translateX(1px) rotate(1deg); }
+  }
+
+  .tape-case svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+  }
+
+  .case-shell {
+    fill: var(--paper);
+    stroke-width: 1.5;
+    filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--ink) 14%, transparent));
+  }
+
+  .case-hub {
+    fill: color-mix(in srgb, var(--ink) 4%, var(--paper));
+    stroke-width: 1;
+    opacity: 0.6;
+  }
+
+  .case-hub-in {
+    stroke-width: 1;
+    stroke-dasharray: 1.5 2.5;
+    opacity: 0.4;
+  }
+
+  .case-pin,
+  .case-lock,
+  .case-slot {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .case-grip {
+    stroke-width: 1.5;
+    opacity: 0.25;
+  }
+
+  .tape-track {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    height: var(--case);
+    touch-action: none;
+  }
+
+  .tape-strip {
+    position: absolute;
+    left: 0;
+    bottom: var(--strip-bottom);
+    width: 0;
+    height: var(--strip);
+    overflow: hidden;
+    background: color-mix(in srgb, var(--ink) 3%, var(--paper));
+    border-block: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    cursor: grab;
+  }
+
+  .tape-scale {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: calc(var(--unit, 16px) * 20);
+    background:
+      repeating-linear-gradient(to left, currentColor 0 1px, transparent 1px var(--unit, 16px)) right top / 100% 45% no-repeat,
+      repeating-linear-gradient(to left, color-mix(in srgb, currentColor 45%, transparent) 0 1px, transparent 1px calc(var(--unit, 16px) / 2)) right top / 100% 25% no-repeat;
+  }
+
+  .tape-scale :global(span) {
+    position: absolute;
+    right: calc(var(--cm) * var(--unit, 16px));
+    bottom: 1px;
+    translate: 50% 0;
+    font-size: 0.5rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tape-scale :global(span.is-ten) {
+    font-weight: 600;
+  }
+
+  .tape-hook {
+    position: absolute;
+    z-index: 2;
+    left: 0;
+    bottom: calc(var(--strip-bottom) - 0.3rem);
+    width: 0.4rem;
+    height: calc(var(--strip) + 0.65rem);
+    border-radius: 0 0.15rem 0.15rem 0;
+    background: currentColor;
+    cursor: grab;
+    transform-origin: 0 100%;
+    outline-offset: 4px;
+  }
+
+  .tape-hook::before {
+    content: '';
+    position: absolute;
+    inset: -0.9rem -1rem -0.9rem -0.6rem;
+  }
+
+  .tile-tape:global(.is-pulling) .tape-hook,
+  .tile-tape:global(.is-pulling) .tape-strip {
+    cursor: grabbing;
+  }
+
+  .tape-read {
+    position: absolute;
+    left: -1.5rem;
+    bottom: calc(var(--strip-bottom) + var(--strip) + 0.8rem);
+    width: 3.4rem;
+    text-align: center;
+    font-family: var(--hand);
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+  }
+
+  .tile-tape:global(.is-out) .tape-read,
+  .tile-tape:global(.is-pulling) .tape-read {
+    opacity: 1;
+  }
+
+  @media (max-width: 56rem) {
+    .shelf {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 38rem) {
+    .tape {
+      --case: 4.4rem;
+    }
+
+    .shelf {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tile.wide {
+      grid-column: auto;
+    }
+
+    .wrap-sheet {
+      --cell: 2.9rem;
+      --gap: 0.2rem;
+      --size: 2.4rem;
+      padding-inline: 0.5rem;
+    }
+
+    .wrap-name {
+      font-size: 0.58rem;
+    }
+  }
+</style>
+
+<script>
+  import { mountTactile } from '../../labs/tactile';
+
+  mountTactile();
+</script>

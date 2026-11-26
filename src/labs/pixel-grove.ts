@@ -1,4 +1,3 @@
-// Pixel Grove: three rigged pixel trees that sway, shake and shed.
 // Tree data (palette, sheets, bone rig, hit spans) lives in public/lab/*.json.
 import { context2d, need } from '../lib/dom';
 
